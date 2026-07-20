@@ -1,0 +1,167 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Like a King Inc. — VPS production stack
+#
+#   caddy         reverse proxy + automatic HTTPS (Let's Encrypt) for every domain
+#   app           the website + operations console (this repo)
+#   espocrm       real CRM product (turnkey in this stack)
+#   invoiceninja  real invoicing product   ── first-run steps in DEPLOY-VPS.md
+#   cal           real booking product (Cal.com) ── first-run steps in DEPLOY-VPS.md
+#   + their databases (MySQL / Postgres) and Redis
+#
+# Copy .env.prod.example → .env, fill it in, then:  docker compose -f docker-compose.prod.yml up -d
+# Full walkthrough: DEPLOY-VPS.md
+# ─────────────────────────────────────────────────────────────────────────────
+name: likeaking
+
+networks:
+  edge:
+  data:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  app_data:
+  in_public:
+  in_storage:
+  mysql_in:
+  pg_cal:
+  mysql_espo:
+  redis_data:
+
+services:
+  # ── Reverse proxy + automatic HTTPS ────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - in_public:/srv/invoiceninja/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      INVOICING_DOMAIN: ${INVOICING_DOMAIN}
+      BOOKING_DOMAIN: ${BOOKING_DOMAIN}
+      CRM_DOMAIN: ${CRM_DOMAIN}
+    networks: [edge]
+    depends_on: [app]
+
+  # ── The website + operations console (this repo) ───────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATA_DIR: /data
+    volumes:
+      - app_data:/data
+    networks: [edge]
+
+  # ── Real CRM (turnkey) ─────────────────────────────────────────────────────
+  espocrm_db:
+    image: mysql:8
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ESPO_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: espocrm
+      MYSQL_USER: espocrm
+      MYSQL_PASSWORD: ${ESPO_DB_PASSWORD}
+    volumes:
+      - mysql_espo:/var/lib/mysql
+    networks: [data]
+
+  espocrm:
+    image: espocrm/espocrm:latest
+    restart: unless-stopped
+    depends_on: [espocrm_db]
+    environment:
+      ESPOCRM_DATABASE_HOST: espocrm_db
+      ESPOCRM_DATABASE_NAME: espocrm
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: ${ESPO_DB_PASSWORD}
+      ESPOCRM_ADMIN_USERNAME: ${ESPO_ADMIN_USER}
+      ESPOCRM_ADMIN_PASSWORD: ${ESPO_ADMIN_PASSWORD}
+      ESPOCRM_SITE_URL: https://${CRM_DOMAIN}
+    networks: [edge, data]
+
+  # ── Real invoicing (Invoice Ninja) — see DEPLOY-VPS.md for first-run ───────
+  invoiceninja_db:
+    image: mysql:8
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${IN_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ninja
+      MYSQL_USER: ninja
+      MYSQL_PASSWORD: ${IN_DB_PASSWORD}
+    volumes:
+      - mysql_in:/var/lib/mysql
+    networks: [data]
+
+  invoiceninja:
+    image: invoiceninja/invoiceninja:5
+    restart: unless-stopped
+    depends_on: [invoiceninja_db, redis]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: https://${INVOICING_DOMAIN}
+      APP_KEY: ${IN_APP_KEY}
+      REQUIRE_HTTPS: "true"
+      DB_HOST: invoiceninja_db
+      DB_DATABASE: ninja
+      DB_USERNAME: ninja
+      DB_PASSWORD: ${IN_DB_PASSWORD}
+      REDIS_HOST: redis
+      CACHE_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      MAIL_MAILER: smtp
+      MAIL_HOST: ${SMTP_HOST}
+      MAIL_PORT: ${SMTP_PORT}
+      MAIL_USERNAME: ${SMTP_USER}
+      MAIL_PASSWORD: ${SMTP_PASS}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_EMAIL}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+    volumes:
+      - in_public:/var/www/html/public
+      - in_storage:/var/www/html/storage
+    networks: [edge, data]
+
+  # ── Real booking (Cal.com) — see DEPLOY-VPS.md for first-run ───────────────
+  cal_db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: calcom
+      POSTGRES_USER: calcom
+      POSTGRES_PASSWORD: ${CAL_DB_PASSWORD}
+    volumes:
+      - pg_cal:/var/lib/postgresql/data
+    networks: [data]
+
+  cal:
+    image: calcom/cal.com:latest
+    restart: unless-stopped
+    depends_on: [cal_db]
+    environment:
+      DATABASE_URL: postgresql://calcom:${CAL_DB_PASSWORD}@cal_db:5432/calcom
+      NEXTAUTH_URL: https://${BOOKING_DOMAIN}
+      NEXT_PUBLIC_WEBAPP_URL: https://${BOOKING_DOMAIN}
+      NEXTAUTH_SECRET: ${CAL_NEXTAUTH_SECRET}
+      CALENDSO_ENCRYPTION_KEY: ${CAL_ENCRYPTION_KEY}
+    networks: [edge, data]
+
+  # ── Shared cache/queue ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [data]

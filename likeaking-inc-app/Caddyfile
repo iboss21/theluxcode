@@ -1,0 +1,31 @@
+# Caddy — automatic HTTPS for every service. Point each domain's DNS A record at
+# this server's IP; Caddy fetches Let's Encrypt certs on first request.
+# Domains come from .env (APP_DOMAIN, CRM_DOMAIN, INVOICING_DOMAIN, BOOKING_DOMAIN).
+# If you are not running one of the tools yet, delete or comment its block.
+
+# Website + operations console
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+# EspoCRM (real CRM) — serves HTTP on :80
+{$CRM_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy espocrm:80
+}
+
+# Invoice Ninja (real invoicing) — PHP-FPM app; Caddy serves its public root and
+# passes PHP to the container over FastCGI on :9000 (public dir shared via volume)
+{$INVOICING_DOMAIN} {
+	encode zstd gzip
+	root * /srv/invoiceninja/public
+	php_fastcgi invoiceninja:9000
+	file_server
+}
+
+# Cal.com (real booking) — Next.js server on :3000
+{$BOOKING_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy cal:3000
+}

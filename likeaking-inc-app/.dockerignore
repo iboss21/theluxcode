@@ -1,0 +1,16 @@
+node_modules
+data
+.env
+.env*.local
+.git
+.gitignore
+*.log
+npm-debug.log*
+public/screenshots
+public/.thumbnail
+public/.image-slots.state.json
+Dockerfile
+docker-compose*.yml
+Caddyfile
+DEPLOY*.md
+README.md
