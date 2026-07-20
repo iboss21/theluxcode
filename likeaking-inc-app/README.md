@@ -54,9 +54,9 @@ likeaking-inc/
 ## Branding
 
 - **Website** favicon/logo → `public/images/lion-crest.webp` (the lion crest).
-- **Admin** wolf crest → drop your exact logo at `public/images/wolf-crest.webp`
-  (or `.png`) and the console uses it automatically; until then it renders a
-  clean built-in geometric wolf crest, so nothing ever looks unfinished.
+- **Admin** logo → a clean typographic "LK" monogram by default (no icon file
+  needed). Drop your own logo at `public/images/wolf-crest.webp` (or `.png`) and
+  the console loads it and replaces the monogram automatically, everywhere.
 
 ## Run locally
 

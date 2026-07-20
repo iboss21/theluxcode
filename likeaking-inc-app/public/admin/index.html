@@ -195,25 +195,16 @@ const IC={
 };
 const icon=(k,sz=15)=>`<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||''}</svg>`;
 
-/* Wolf crest — the Operations mark. Uses /images/wolf-crest.(webp|png) if you
-   drop your exact logo there; otherwise falls back to this built-in geometric
-   crest, so the console always looks complete. */
-function wolfSVG(size){
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Like a King Inc.">
-    <defs><linearGradient id="wg${size}" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#e9bd7d"/><stop offset="1" stop-color="#a9762c"/></linearGradient></defs>
-    <path d="M9 6 L27 19 L17 32 Z" fill="url(#wg${size})"/>
-    <path d="M55 6 L37 19 L47 32 Z" fill="url(#wg${size})"/>
-    <path d="M32 19 L19 25 L13 22 L20 41 L32 59 L44 41 L51 22 L45 25 Z" fill="url(#wg${size})"/>
-    <path d="M32 33 L25 41 L32 59 L39 41 Z" fill="#070b14" opacity=".38"/>
-    <path d="M23 29 L30 32.5 L23 35 Z" fill="#070b14"/>
-    <path d="M41 29 L34 32.5 L41 35 Z" fill="#070b14"/>
-    <path d="M32 45 L29 49 L32 52 L35 49 Z" fill="#070b14" opacity=".55"/>
-  </svg>`;
+/* Brand mark — a clean typographic monogram ("LK" in Marcellus, the brand
+   serif). NOT an icon, NOT an emoji. If you drop your real logo at
+   /images/wolf-crest.(webp|png) it loads and REPLACES the monogram
+   automatically — until then the monogram is the mark. */
+function markInner(size){
+  const r=Math.round(size*0.24), fs=Math.round(size*0.42);
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border:1.5px solid var(--gold);border-radius:${r}px;font-family:'Marcellus',serif;font-size:${fs}px;color:var(--gold2);line-height:1;letter-spacing:.01em">LK</span>`;
 }
 function wolf(size=34){
-  const fallback = 'data:image/svg+xml,'+encodeURIComponent(wolfSVG(size));
-  return `<img src="/images/wolf-crest.webp" width="${size}" height="${size}" alt="Like a King Inc." style="object-fit:contain;display:block" onerror="this.onerror=null;this.src='/images/wolf-crest.png';this.addEventListener('error',()=>{this.src='${fallback}'},{once:true})">`;
+  return `<span style="display:inline-flex;flex:none">${markInner(size)}<img src="/images/wolf-crest.webp" alt="Like a King Inc." width="${size}" height="${size}" style="display:none;object-fit:contain" onload="this.previousElementSibling.style.display='none';this.style.display='block'" onerror="this.onerror=null;this.src='/images/wolf-crest.png';this.addEventListener('error',()=>this.remove(),{once:true})"></span>`;
 }
 
 /* ═══ auth ═══ */

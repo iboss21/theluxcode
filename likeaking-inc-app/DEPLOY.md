@@ -48,9 +48,10 @@ is unset. Back up `DATA_DIR/store.json` on a schedule.
 
 ## 5. Branding
 - **Website** favicon/logo → `public/images/lion-crest.webp` (lion crest, already set).
-- **Admin** logo → `public/images/wolf-crest.png` ships with a built-in wolf crest.
-  Replace that file with your exact wolf logo (keep the name, or use
-  `wolf-crest.webp`) and the console picks it up automatically.
+- **Admin** logo → ships with a clean typographic "LK" monogram (no icon file
+  needed). To use your own logo, drop it at `public/images/wolf-crest.webp`
+  (or `.png`) — the console loads it and replaces the monogram automatically,
+  everywhere, no code change.
 
 ## 6. AI (free, optional)
 Admin → **AI · REGES** → provider `groq` → paste a free key from
