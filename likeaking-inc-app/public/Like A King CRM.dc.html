@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Montserrat:wght@300;400;500;600&display=swap">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#070b15;font-family:"Montserrat",system-ui,sans-serif;color:#eef1f6;font-weight:300;-webkit-font-smoothing:antialiased;}
+.mar{font-family:"Marcellus",serif;font-weight:400;}
+.kick{font-family:"Montserrat";font-weight:400;letter-spacing:.24em;text-transform:uppercase;}
+::selection{background:rgba(182,130,53,.3);color:#fff;}
+input,textarea,button{font-family:inherit;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:rgba(205,214,228,.14);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+@keyframes lekpulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.35;transform:scale(.8);}}
+@keyframes lekdrawer{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+input:focus,textarea:focus{outline:none;}
+</style>
+</helmet>
+
+<div style="height:100vh;overflow:hidden;background:radial-gradient(1200px 600px at 80% -10%,rgba(20,32,59,.55),transparent),#070b15;">
+
+  <sc-if value="{{ authed }}" hint-placeholder-val="{{ false }}">
+    <!-- ══ APP ══ -->
+    <div style="display:flex;height:100vh;">
+
+      <!-- Left rail -->
+      <aside style="width:216px;flex:none;border-right:1px solid rgba(205,214,228,.1);display:flex;flex-direction:column;background:rgba(8,12,22,.6);">
+        <div style="padding:24px 22px 22px;border-bottom:1px solid rgba(205,214,228,.08);">
+          <div class="mar" style="font-size:17px;letter-spacing:.02em;">Like a King <span style="color:#b68235;font-size:10px;letter-spacing:.2em;">INC.</span></div>
+          <div class="kick" style="font-size:8.5px;color:#7f8db0;margin-top:7px;">REGES · Operations</div>
+        </div>
+        <nav style="display:flex;flex-direction:column;gap:2px;padding:16px 12px;flex:1;">
+          <sc-for list="{{ nav }}" as="item" hint-placeholder-count="4">
+            <button onClick="{{ item.go }}" style="{{ item.style }}" style-hover="background:rgba(205,214,228,.06);color:#eef1f6;">
+              <span style="width:15px;height:15px;display:inline-flex;">{{ item.icon }}</span>
+              <span style="flex:1;text-align:left;">{{ item.label }}</span>
+              <sc-if value="{{ item.badge }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;background:rgba(182,130,53,.22);color:#d8b877;border-radius:20px;padding:2px 8px;">{{ item.badge }}</span></sc-if>
+            </button>
+          </sc-for>
+        </nav>
+        <div style="padding:14px 16px;border-top:1px solid rgba(205,214,228,.08);display:flex;align-items:center;gap:9px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:{{ connDot }};box-shadow:0 0 8px {{ connDot }};animation:lekpulse 2s ease-in-out infinite;"></span>
+          <span style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#8b95ab;flex:1;">{{ connLabel }}</span>
+        </div>
+        <button onClick="{{ logout }}" style="margin:0 16px 18px;background:transparent;border:1px solid rgba(205,214,228,.16);color:#aab6cc;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:10px;cursor:pointer;border-radius:5px;" style-hover="border-color:#b68235;color:#eef1f6;">Sign out</button>
+      </aside>
+
+      <!-- Main -->
+      <main style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <!-- top bar -->
+        <header style="display:flex;align-items:center;justify-content:space-between;padding:20px 30px;border-bottom:1px solid rgba(205,214,228,.09);flex:none;">
+          <div>
+            <h1 class="mar" style="margin:0;font-size:23px;color:#f4f6fa;">{{ viewTitle }}</h1>
+            <div style="font-size:11px;color:#7f8db0;margin-top:4px;">{{ viewSub }}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:22px;">
+            <div style="text-align:right;"><div class="mar" style="font-size:18px;color:#dfe5ef;">{{ clock }}</div><div class="kick" style="font-size:8px;color:#6f7994;margin-top:2px;">{{ today }}</div></div>
+          </div>
+        </header>
+
+        <!-- metrics strip -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:rgba(205,214,228,.08);border-bottom:1px solid rgba(205,214,228,.09);flex:none;">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="5">
+            <div style="background:#080d18;padding:16px 20px;">
+              <div class="kick" style="font-size:8.5px;color:#7f8db0;">{{ s.label }}</div>
+              <div class="mar" style="font-size:26px;color:{{ s.color }};margin-top:8px;line-height:1;">{{ s.value }}</div>
+              <div style="font-size:10px;color:#6f7994;margin-top:6px;">{{ s.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- content -->
+        <div style="flex:1;overflow:auto;">
+
+          <!-- PIPELINE -->
+          <sc-if value="{{ isPipeline }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:16px;padding:22px 26px;min-width:min-content;height:100%;align-items:stretch;">
+              <sc-for list="{{ columns }}" as="col" hint-placeholder-count="5">
+                <div onDragOver="{{ allowDrop }}" onDrop="{{ col.onDrop }}" style="width:262px;flex:none;display:flex;flex-direction:column;background:rgba(12,19,34,.5);border:1px solid rgba(205,214,228,.08);border-top:2px solid {{ col.accent }};border-radius:0 0 6px 6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;">
+                    <span class="kick" style="font-size:10px;color:{{ col.accent }};">{{ col.label }}</span>
+                    <span style="font-size:11px;color:#8b95ab;background:rgba(205,214,228,.06);border-radius:20px;padding:2px 9px;">{{ col.count }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:10px;padding:0 12px 14px;overflow-y:auto;flex:1;">
+                    <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                      <div draggable="true" onDragStart="{{ c.onDragStart }}" onClick="{{ c.open }}" style="background:#0d1524;border:1px solid rgba(205,214,228,.1);border-radius:6px;padding:14px;cursor:pointer;transition:border-color .2s,transform .2s;" style-hover="border-color:rgba(182,130,53,.5);transform:translateY(-2px);">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                          <span class="mar" style="font-size:15px;color:#f4f6fa;">{{ c.name }}</span>
+                          <span style="font-size:9px;color:#6f7994;white-space:nowrap;">{{ c.age }}</span>
+                        </div>
+                        <div style="font-size:11px;color:#8b95ab;margin-top:3px;">{{ c.company }}</div>
+                        <div style="display:flex;align-items:center;gap:7px;margin-top:11px;">
+                          <span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#aab6cc;border:1px solid rgba(205,214,228,.16);border-radius:4px;padding:2px 7px;">{{ c.practice }}</span>
+                          <span style="width:5px;height:5px;border-radius:50%;background:{{ c.confColor }};" title="{{ c.confidence }}"></span>
+                        </div>
+                        <div style="margin-top:12px;padding-top:11px;border-top:1px solid rgba(205,214,228,.08);display:flex;justify-content:space-between;align-items:center;">
+                          <span style="font-size:13px;color:#d8b877;">{{ c.range }}</span>
+                          <span style="font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:{{ c.channelColor }};">{{ c.channel }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- INBOX list -->
+          <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:22px 26px;">
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="text-align:left;">
+                  <sc-for list="{{ cols }}" as="h" hint-placeholder-count="6"><th style="padding:11px 14px;border-bottom:1px solid rgba(205,214,228,.14);color:#7f8db0;font-weight:400;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;">{{ h }}</th></sc-for>
+                </tr></thead>
+                <tbody>
+                  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                    <tr onClick="{{ r.open }}" style="cursor:pointer;transition:background .2s;" style-hover="background:rgba(205,214,228,.04);">
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);color:#8b95ab;font-size:11px;">{{ r.ref }}</td>
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);"><span class="mar" style="font-size:15px;color:#f4f6fa;">{{ r.name }}</span><div style="font-size:10px;color:#6f7994;">{{ r.company }}</div></td>
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);color:#aab6cc;">{{ r.practice }}</td>
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);color:#d8b877;">{{ r.value }}</td>
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);"><span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span></td>
+                      <td style="padding:13px 14px;border-bottom:1px solid rgba(205,214,228,.07);color:#6f7994;font-size:11px;">{{ r.date }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-if>
+
+          <!-- METRICS -->
+          <sc-if value="{{ isMetrics }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px;display:grid;grid-template-columns:1.4fr 1fr;gap:22px;">
+              <div style="border:1px solid rgba(205,214,228,.1);border-radius:8px;padding:24px;background:rgba(12,19,34,.4);">
+                <div class="kick" style="font-size:9.5px;color:#7f8db0;margin-bottom:22px;">Pipeline by stage</div>
+                <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="5">
+                  <div style="margin-bottom:18px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px;"><span style="color:#cdd6e4;">{{ f.label }}</span><span style="color:#8b95ab;">{{ f.count }} · {{ f.value }}</span></div>
+                    <div style="height:6px;background:rgba(205,214,228,.07);border-radius:6px;overflow:hidden;"><div style="height:100%;width:{{ f.pct }};background:{{ f.accent }};border-radius:6px;transition:width .6s;"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:16px;">
+                <sc-for list="{{ bigStats }}" as="b" hint-placeholder-count="3">
+                  <div style="border:1px solid rgba(205,214,228,.1);border-radius:8px;padding:22px 24px;background:rgba(12,19,34,.4);">
+                    <div class="kick" style="font-size:9px;color:#7f8db0;">{{ b.label }}</div>
+                    <div class="mar" style="font-size:34px;color:{{ b.color }};margin-top:10px;line-height:1;">{{ b.value }}</div>
+                    <div style="font-size:11px;color:#6f7994;margin-top:8px;">{{ b.sub }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- REMINDERS -->
+          <sc-if value="{{ isReminders }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px;max-width:760px;">
+              <sc-if value="{{ hasReminders }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ reminders }}" as="rm" hint-placeholder-count="3">
+                  <div onClick="{{ rm.open }}" style="border:1px solid rgba(205,214,228,.1);border-left:2px solid {{ rm.accent }};border-radius:6px;padding:16px 20px;margin-bottom:12px;cursor:pointer;" style-hover="background:rgba(205,214,228,.04);">
+                    <div style="display:flex;justify-content:space-between;"><span class="mar" style="font-size:15px;color:#f4f6fa;">{{ rm.name }}</span><span style="font-size:11px;color:{{ rm.accent }};">{{ rm.due }}</span></div>
+                    <div style="font-size:12px;color:#8b95ab;margin-top:6px;line-height:1.6;">{{ rm.body }}</div>
+                  </div>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{ noReminders }}" hint-placeholder-val="{{ false }}">
+                <div style="text-align:center;padding:70px 0;color:#6f7994;font-size:13px;">No follow-ups due. Add reminders from a lead's notes.</div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+        </div>
+      </main>
+
+      <!-- DETAIL DRAWER -->
+      <sc-if value="{{ hasSelected }}" hint-placeholder-val="{{ false }}">
+        <div style="position:fixed;inset:0;z-index:40;background:rgba(4,7,14,.6);backdrop-filter:blur(3px);" onClick="{{ closeLead }}"></div>
+        <div style="position:fixed;top:0;right:0;bottom:0;width:472px;max-width:94vw;z-index:41;background:#0a1120;border-left:1px solid rgba(205,214,228,.14);overflow-y:auto;animation:lekdrawer .3s ease;">
+          <div style="position:sticky;top:0;background:rgba(10,17,32,.92);backdrop-filter:blur(8px);padding:22px 26px;border-bottom:1px solid rgba(205,214,228,.1);display:flex;justify-content:space-between;align-items:flex-start;z-index:2;">
+            <div>
+              <div style="font-size:10px;color:#7f8db0;letter-spacing:.14em;">{{ sel.ref }}</div>
+              <h2 class="mar" style="margin:5px 0 0;font-size:24px;color:#f4f6fa;">{{ sel.name }}</h2>
+              <div style="font-size:12px;color:#8b95ab;margin-top:3px;">{{ sel.company }} · {{ sel.email }}</div>
+            </div>
+            <button onClick="{{ closeLead }}" style="background:transparent;border:0;color:#8b95ab;cursor:pointer;font-size:22px;line-height:1;padding:2px 6px;" style-hover="color:#eef1f6;">×</button>
+          </div>
+
+          <div style="padding:24px 26px;">
+            <!-- status control -->
+            <div style="display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;">
+              <sc-for list="{{ sel.statusOptions }}" as="o" hint-placeholder-count="5">
+                <button onClick="{{ o.set }}" style="{{ o.style }}" style-hover="border-color:#b68235;">{{ o.label }}</button>
+              </sc-for>
+            </div>
+
+            <!-- REGES assessment -->
+            <div style="border:1px solid rgba(182,130,53,.35);border-radius:8px;padding:20px;margin-bottom:22px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;"><span class="kick" style="font-size:9px;color:#b68235;">REGES Assessment</span><span style="font-size:9px;color:#7f8db0;">· {{ sel.source }}</span></div>
+              <div style="display:flex;align-items:baseline;gap:10px;"><span class="mar" style="font-size:30px;color:#eef1f6;">{{ sel.range }}</span></div>
+              <div style="font-size:11px;color:#8b95ab;margin-top:6px;">Expected {{ sel.expected }} · <span style="color:{{ sel.confColor }};">{{ sel.confidence }} confidence</span></div>
+              <p style="font-size:12.5px;color:#aab6cc;line-height:1.65;margin:14px 0 0;">{{ sel.rationale }}</p>
+              <div style="margin-top:18px;display:flex;flex-direction:column;gap:11px;">
+                <sc-for list="{{ sel.breakdown }}" as="b" hint-placeholder-count="4">
+                  <div style="display:flex;justify-content:space-between;font-size:11.5px;"><span style="color:#7f8db0;">{{ b.label }}</span><span style="color:#dfe5ef;">{{ b.value }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- human override -->
+            <div style="border:1px solid rgba(205,214,228,.12);border-radius:8px;padding:20px;margin-bottom:22px;">
+              <div class="kick" style="font-size:9px;color:#7f8db0;margin-bottom:14px;">Human quote override</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <span style="color:#8b95ab;font-size:18px;">$</span>
+                <input type="number" ref="{{ setQuoteRef }}" placeholder="{{ sel.expectedRaw }}" style="flex:1;background:transparent;border:0;border-bottom:1px solid rgba(205,214,228,.22);color:#eef1f6;font-size:19px;font-family:'Marcellus';padding:6px 0;" />
+                <button onClick="{{ saveQuote }}" style="background:transparent;border:1px solid #b68235;color:#d8b877;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:9px 16px;cursor:pointer;border-radius:5px;" style-hover="background:rgba(182,130,53,.14);">Set quote</button>
+              </div>
+              <sc-if value="{{ sel.hasQuote }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;color:#9fd4c4;margin-top:11px;">Quoted at {{ sel.quoteLabel }} — overrides the REGES range.</div></sc-if>
+            </div>
+
+            <!-- inquiry detail -->
+            <div class="kick" style="font-size:9px;color:#7f8db0;margin-bottom:12px;">Inquiry</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:9px 16px;font-size:12.5px;margin-bottom:14px;">
+              <sc-for list="{{ sel.fields }}" as="f" hint-placeholder-count="4">
+                <span style="color:#7f8db0;white-space:nowrap;">{{ f.k }}</span><span style="color:#dfe5ef;">{{ f.v }}</span>
+              </sc-for>
+            </div>
+            <p style="font-size:13px;color:#cdd6e4;line-height:1.75;white-space:pre-wrap;border-top:1px solid rgba(205,214,228,.08);padding-top:16px;margin:0 0 24px;">{{ sel.details }}</p>
+
+            <!-- notes -->
+            <div class="kick" style="font-size:9px;color:#7f8db0;margin-bottom:14px;">Notes &amp; follow-ups</div>
+            <sc-for list="{{ sel.notes }}" as="n" hint-placeholder-count="2">
+              <div style="border-left:2px solid rgba(182,130,53,.4);padding:2px 0 2px 14px;margin-bottom:14px;">
+                <div style="font-size:12.5px;color:#cdd6e4;line-height:1.6;">{{ n.body }}</div>
+                <div style="font-size:10px;color:#6f7994;margin-top:5px;">{{ n.meta }}</div>
+              </div>
+            </sc-for>
+            <div style="margin-top:12px;">
+              <textarea ref="{{ setNoteRef }}" rows="2" placeholder="Add a note…" style="width:100%;background:rgba(205,214,228,.04);border:1px solid rgba(205,214,228,.12);border-radius:6px;color:#eef1f6;font-size:13px;padding:11px 13px;resize:vertical;"></textarea>
+              <div style="display:flex;gap:10px;align-items:center;margin-top:10px;">
+                <span style="font-size:10px;color:#7f8db0;letter-spacing:.1em;text-transform:uppercase;">Remind</span>
+                <input type="date" ref="{{ setRemindRef }}" style="background:transparent;border:1px solid rgba(205,214,228,.14);border-radius:5px;color:#cdd6e4;font-size:12px;padding:7px 10px;color-scheme:dark;" />
+                <button onClick="{{ addNote }}" style="margin-left:auto;background:transparent;border:1px solid rgba(205,214,228,.2);color:#cdd6e4;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:9px 16px;cursor:pointer;border-radius:5px;" style-hover="border-color:#b68235;color:#eef1f6;">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </sc-if>
+
+  <!-- ══ LOGIN ══ -->
+  <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ true }}">
+    <div style="height:100vh;display:flex;align-items:center;justify-content:center;">
+      <div style="width:380px;max-width:90vw;border:1px solid rgba(205,214,228,.12);border-radius:10px;padding:44px 40px;background:rgba(12,19,34,.5);">
+        <div class="mar" style="font-size:22px;text-align:center;">Like a King <span style="color:#b68235;font-size:12px;letter-spacing:.2em;">INC.</span></div>
+        <div class="kick" style="font-size:9px;color:#7f8db0;text-align:center;margin-top:10px;">REGES · Operations Console</div>
+        <div style="height:1px;background:rgba(205,214,228,.1);margin:28px 0;"></div>
+        <label class="kick" style="font-size:9px;color:#8b95ab;">Access password</label>
+        <input type="password" ref="{{ setPassRef }}" onKeyDown="{{ onPassKey }}" placeholder="••••••••" style="width:100%;margin-top:10px;background:transparent;border:0;border-bottom:1px solid rgba(205,214,228,.24);color:#eef1f6;font-size:16px;padding:10px 0;letter-spacing:.1em;" />
+        <div style="min-height:16px;font-size:11px;color:#c98a8a;margin-top:10px;">{{ loginError }}</div>
+        <button onClick="{{ doLogin }}" style="width:100%;margin-top:14px;background:#b68235;border:0;color:#0a1120;font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:14px;cursor:pointer;border-radius:6px;font-weight:500;" style-hover="background:#c8934a;">Enter console</button>
+        <div style="font-size:10px;color:#5f6a83;text-align:center;margin-top:18px;line-height:1.6;">{{ demoHint }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { authed:false, view:'pipeline', inquiries:[], selectedId:null, conn:'demo', loginError:'', clock:'', ver:0 };
+
+  API = './backend/api.php';
+
+  componentDidMount() {
+    this.setState({ inquiries: this.seed() });
+    this.tick(); this._clk = setInterval(()=>this.tick(), 1000);
+    this.checkSession();
+    this._poll = setInterval(()=>{ if (this.state.authed) this.refresh(); }, 10000);
+  }
+  componentWillUnmount(){ clearInterval(this._clk); clearInterval(this._poll); }
+
+  tick(){ const d=new Date(); this.setState({ clock:d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }); }
+
+  async api(action, payload){
+    const r = await fetch(this.API, { method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin', body:JSON.stringify({action, ...payload}) });
+    if(!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+  async checkSession(){
+    try{ const s = await this.api('session'); if(s && s.authed){ this.setState({authed:true, conn:'live'}); this.refresh(); } }
+    catch(e){ /* backend not deployed → demo */ }
+  }
+  async refresh(){
+    try{
+      const d = await this.api('list');
+      if(d && d.inquiries){ this.setState({ inquiries: d.inquiries.map(x=>this.normalize(x)), conn:'live' }); }
+    }catch(e){ this.setState({conn:'demo'}); }
+  }
+  normalize(x){
+    return { ...x, id:+x.id, ai_low:+x.ai_low, ai_expected:+x.ai_expected, ai_high:+x.ai_high,
+      quote_amount: x.quote_amount==null?null:+x.quote_amount,
+      ai_breakdown: typeof x.ai_breakdown==='string'? (JSON.parse(x.ai_breakdown||'null')) : x.ai_breakdown,
+      notes: x.notes||[] };
+  }
+
+  async doLogin(){
+    const pass = this._pass ? this._pass.value : '';
+    if(!pass){ this.setState({loginError:'Enter your password.'}); return; }
+    try{
+      const r = await this.api('login',{password:pass});
+      if(r && r.ok){ this.setState({authed:true, conn:'live', loginError:''}); this.refresh(); return; }
+      this.setState({loginError:'Incorrect password.'});
+    }catch(e){
+      // backend absent → demo console
+      this.setState({authed:true, conn:'demo', loginError:''});
+    }
+  }
+  onPassKey(e){ if(e.key==='Enter') this.doLogin(); }
+  logout(){ this.api('logout').catch(()=>{}); this.setState({authed:false, selectedId:null}); if(this._pass) this._pass.value=''; }
+
+  setView(v){ return ()=> this.setState({view:v, selectedId:null}); }
+  open(id){ return ()=> this.setState({selectedId:id}); }
+  closeLead(){ this.setState({selectedId:null}); }
+
+  // drag
+  onDragStart(id){ return (e)=>{ this._drag=id; try{e.dataTransfer.effectAllowed='move';}catch(_){} }; }
+  allowDrop(e){ e.preventDefault(); }
+  dropTo(status){ return (e)=>{ e.preventDefault(); if(this._drag!=null){ this.moveTo(this._drag, status); this._drag=null; } }; }
+  moveTo(id, status){
+    this.setState(s=>({ inquiries: s.inquiries.map(x=> x.id===id? {...x, status}:x) }));
+    if(this.state.conn==='live') this.api('update',{id, status}).catch(()=>{});
+  }
+
+  saveQuote(){
+    const id=this.state.selectedId; if(id==null) return;
+    const v = this._quote && this._quote.value!=='' ? Math.round(+this._quote.value) : null;
+    this.setState(s=>({ inquiries: s.inquiries.map(x=> x.id===id? {...x, quote_amount:v, status: x.status==='new'?'quoted':x.status }:x) }));
+    if(this.state.conn==='live') this.api('update',{id, quote_amount:v, status:'quoted'}).catch(()=>{});
+    if(this._quote) this._quote.value='';
+  }
+  addNote(){
+    const id=this.state.selectedId; if(id==null) return;
+    const body = this._note? this._note.value.trim():''; if(!body) return;
+    const remind = this._remind? this._remind.value : '';
+    const note = { body, created_at:new Date().toISOString().slice(0,19).replace('T',' '), remind_at: remind||null };
+    this.setState(s=>({ inquiries: s.inquiries.map(x=> x.id===id? {...x, notes:[...(x.notes||[]), note]}:x) }));
+    if(this.state.conn==='live') this.api('note',{id, body, remind_at:remind||null}).catch(()=>{});
+    if(this._note) this._note.value=''; if(this._remind) this._remind.value='';
+  }
+
+  // ── helpers ──
+  money(n){ return '$'+Number(n||0).toLocaleString(); }
+  short(p){ return ({'AI Engineering':'AI Eng','Digital Platforms':'Platforms','Cybersecurity':'Security','Cloud':'Cloud'})[p]||p; }
+  age(iso){ const d=(Date.now()-new Date(iso.replace(' ','T')).getTime())/86400000;
+    if(d<1) return 'today'; if(d<2) return '1d'; return Math.floor(d)+'d'; }
+  confColor(c){ return c==='high'?'#2f9e7e':c==='medium'?'#c8a24a':'#8b6f6f'; }
+  val(x){ return x.quote_amount!=null? x.quote_amount : x.ai_expected; }
+  statusMeta(){ return { new:['New','#9fb4d8'], reviewing:['Reviewing','#c8a24a'], quoted:['Quoted','#b68235'], won:['Won','#2f9e7e'], lost:['Lost','#8b6f6f'] }; }
+
+  renderVals(){
+    const st=this.state, meta=this.statusMeta(), inq=st.inquiries;
+    const order=['new','reviewing','quoted','won','lost'];
+
+    // nav
+    const dueCount = inq.reduce((a,x)=> a + (x.notes||[]).filter(n=>n.remind_at && n.remind_at<=new Date().toISOString().slice(0,10)).length, 0);
+    const svg = {
+      grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+      inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+      chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
+      bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    };
+    const navItem=(key,label,icon,badge)=>{ const on=st.view===key;
+      return { label, icon: React.createElement('span',{style:{display:'inline-flex',width:15,height:15},dangerouslySetInnerHTML:{__html:icon}}), badge: badge||null, go:this.setView(key),
+        style:`display:flex;align-items:center;gap:11px;padding:11px 13px;border:0;border-radius:6px;cursor:pointer;font-size:12.5px;letter-spacing:.02em;background:${on?'rgba(182,130,53,.14)':'transparent'};color:${on?'#eef1f6':'#8b95ab'};transition:.2s;font-family:Montserrat;` }; };
+    const nav=[ navItem('pipeline','Pipeline',svg.grid), navItem('list','Inbox',svg.inbox),
+      navItem('metrics','Metrics',svg.chart), navItem('reminders','Reminders',svg.bell, dueCount||null) ];
+
+    // metrics strip
+    const byStatus=(s)=>inq.filter(x=>x.status===s);
+    const sum=(arr)=>arr.reduce((a,x)=>a+this.val(x),0);
+    const won=byStatus('won'), lost=byStatus('lost');
+    const conv = (won.length+lost.length)? Math.round(won.length/(won.length+lost.length)*100):0;
+    const pipelineVal = sum([...byStatus('new'),...byStatus('reviewing'),...byStatus('quoted')]);
+    const stats=[
+      {label:'Open',value:inq.filter(x=>!['won','lost'].includes(x.status)).length, color:'#eef1f6', sub:'active inquiries'},
+      {label:'New',value:byStatus('new').length, color:'#9fb4d8', sub:'unreviewed'},
+      {label:'Pipeline',value:this.money(pipelineVal), color:'#d8b877', sub:'weighted value'},
+      {label:'Won',value:this.money(sum(won)), color:'#2f9e7e', sub:won.length+' closed'},
+      {label:'Conversion',value:conv+'%', color:'#cdd6e4', sub:'won vs lost'},
+    ];
+
+    // columns
+    const columns=order.map(k=>{ const cards=byStatus(k).map(x=>({
+        name:x.name, company:x.company||'—', practice:this.short(x.practice), confidence:x.ai_confidence,
+        confColor:this.confColor(x.ai_confidence), age:this.age(x.created_at),
+        range:this.money(x.ai_low)+'–'+this.money(x.ai_high).replace('$',''),
+        channel: x.channel==='reges'?'REGES':'Form', channelColor: x.channel==='reges'?'#b68235':'#6f7994',
+        open:this.open(x.id), onDragStart:this.onDragStart(x.id) }));
+      return { key:k, label:meta[k][0], accent:meta[k][1], count:cards.length, cards, onDrop:this.dropTo(k) }; });
+
+    // list
+    const rows=[...inq].sort((a,b)=> (b.created_at>a.created_at?1:-1)).map(x=>({
+      ref:x.ref, name:x.name, company:x.company||'—', practice:this.short(x.practice),
+      value:this.money(this.val(x)), date:(x.created_at||'').slice(5,10),
+      statusLabel:meta[x.status][0],
+      statusStyle:`font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:${meta[x.status][1]};border:1px solid ${meta[x.status][1]}55;border-radius:20px;padding:3px 10px;`,
+      open:this.open(x.id) }));
+
+    // funnel
+    const maxCount=Math.max(1,...order.map(k=>byStatus(k).length));
+    const funnel=order.map(k=>({ label:meta[k][0], accent:meta[k][1], count:byStatus(k).length,
+      value:this.money(sum(byStatus(k))), pct:(byStatus(k).length/maxCount*100)+'%' }));
+    const bigStats=[
+      {label:'Total inquiries',value:inq.length, color:'#eef1f6', sub:'all time'},
+      {label:'Won value',value:this.money(sum(won)), color:'#2f9e7e', sub:won.length+' engagements'},
+      {label:'Avg. estimate',value:this.money(inq.length? Math.round(sum(inq)/inq.length):0), color:'#d8b877', sub:'expected across pipeline'},
+    ];
+
+    // reminders
+    const today=new Date().toISOString().slice(0,10);
+    const reminders=[];
+    inq.forEach(x=>(x.notes||[]).forEach(n=>{ if(n.remind_at && n.remind_at<=today) reminders.push({
+      name:x.name, body:n.body, due:n.remind_at===today?'due today':'overdue',
+      accent:n.remind_at===today?'#c8a24a':'#8b6f6f', open:this.open(x.id) }); }));
+
+    // selected
+    const x = inq.find(i=>i.id===st.selectedId);
+    let sel=null;
+    if(x){
+      const bd=x.ai_breakdown||{};
+      const breakdown=[
+        {label:'Practice', value:x.practice},
+        {label:'Day rate', value:bd.day_rate? this.money(bd.day_rate):'—'},
+        {label:'Scope', value:bd.scope_days? bd.scope_days+' days':'—'},
+        {label:'Timeline factor', value:bd.timeline_factor? '×'+bd.timeline_factor:'—'},
+        {label:'Complexity', value:bd.complexity_factor? '×'+bd.complexity_factor:'—'},
+        {label:'Method', value:(bd.source||'rate-card')},
+      ];
+      const statusOptions=order.map(k=>({ label:meta[k][0], set:()=>this.moveTo(x.id,k),
+        style:`background:${x.status===k?meta[k][1]+'22':'transparent'};border:1px solid ${x.status===k?meta[k][1]:'rgba(205,214,228,.16)'};color:${x.status===k?meta[k][1]:'#8b95ab'};font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:8px 13px;border-radius:20px;cursor:pointer;transition:.2s;` }));
+      const fields=[
+        {k:'Phone', v:x.phone||'—'}, {k:'Budget band', v:x.budget||'—'},
+        {k:'Timeline', v:x.timeline||'—'}, {k:'Heard via', v:x.source||'—'},
+        {k:'Channel', v: x.channel==='reges'?'REGES concierge':'Estimate form'},
+        {k:'Received', v:(x.created_at||'').slice(0,16)},
+      ];
+      sel={ ref:x.ref, name:x.name, company:x.company||'—', email:x.email,
+        range:this.money(x.ai_low)+' – '+this.money(x.ai_high), expected:this.money(x.ai_expected),
+        expectedRaw:x.ai_expected, confidence:x.ai_confidence, confColor:this.confColor(x.ai_confidence),
+        rationale:x.ai_rationale, source:(bd.source||'rate-card'), breakdown, statusOptions, fields,
+        details:x.details, hasQuote:x.quote_amount!=null, quoteLabel:this.money(x.quote_amount),
+        notes:(x.notes||[]).map(n=>({ body:n.body, meta:(n.created_at||'').slice(0,16)+(n.remind_at?' · remind '+n.remind_at:'') })) };
+    }
+
+    const titles={pipeline:['Pipeline','Drag leads across stages · auto-assessed by REGES'],
+      list:['Inbox','Every inquiry, newest first'], metrics:['Metrics','Pipeline health at a glance'],
+      reminders:['Reminders','Follow-ups coming due']};
+
+    return {
+      authed:st.authed, notAuthed:!st.authed,
+      nav, stats, columns, cols:['Ref','Contact','Practice','Value','Status','Date'], rows,
+      funnel, bigStats, reminders, hasReminders:reminders.length>0, noReminders:reminders.length===0,
+      isPipeline:st.view==='pipeline', isList:st.view==='list', isMetrics:st.view==='metrics', isReminders:st.view==='reminders',
+      viewTitle:titles[st.view][0], viewSub:titles[st.view][1],
+      clock:st.clock, today:new Date().toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}),
+      connDot: st.conn==='live'?'#2f9e7e':'#c8a24a', connLabel: st.conn==='live'?'Live · synced':'Demo data',
+      hasSelected:!!sel, sel: sel||{}, loginError:st.loginError,
+      demoHint: 'Connects to your Hostinger backend when deployed. Without it, this is a live demo on sample data.',
+      allowDrop:this.allowDrop.bind(this), closeLead:()=>this.closeLead(), logout:()=>this.logout(),
+      doLogin:()=>this.doLogin(), onPassKey:(e)=>this.onPassKey(e), saveQuote:()=>this.saveQuote(), addNote:()=>this.addNote(),
+      setPassRef:(el)=>this._pass=el, setQuoteRef:(el)=>this._quote=el, setNoteRef:(el)=>this._note=el, setRemindRef:(el)=>this._remind=el,
+    };
+  }
+
+  seed(){
+    const now=Date.now(), ago=(d)=>new Date(now-d*86400000).toISOString().slice(0,19).replace('T',' ');
+    const mk=(id,ref,name,company,email,practice,budget,timeline,source,status,details,low,exp,high,conf,rat,bd,q,channel,notes)=>
+      ({id,ref,name,company,email,phone:'+1 555 0'+id+'42',practice,budget,timeline,source,status,details,
+        ai_low:low,ai_expected:exp,ai_high:high,ai_confidence:conf,ai_rationale:rat,ai_breakdown:bd,
+        quote_amount:q,channel,created_at:ago(id*1.4),notes:notes||[]});
+    const b=(p,dr,sd,tf,cf,src)=>({practice:p,day_rate:dr,scope_days:sd,timeline_factor:tf,complexity_factor:cf,source:src});
+    return [
+      mk(1,'LAK-7F2A9C','Marcus Whitfield','Northbridge Logistics','m.whitfield@northbridge.co','AI Engineering','$50k–$100k','1–3 months','Referral','new',
+        'We move ~4,000 freight invoices a month, all keyed by hand. Looking for an LLM-based pipeline to extract, validate against POs, and flag exceptions. Must integrate with our legacy TMS.',
+        62000,79500,97000,'high','Rate-card: 45 days AI Engineering at $1,650/day, timeline ×1, complexity ×1.07 (integration, legacy). Refine after scoping.',
+        b('AI Engineering',1650,45,1,1.07,'rate-card'),null,'form',[]),
+      mk(2,'LAK-3B81E0','Dr. Elena Vasquez','Meridian Health Group','evasquez@meridianhg.org','Cybersecurity','$100k+','ASAP / urgent','Google','reviewing',
+        'Post-incident. We need a zero-trust rearchitecture and HIPAA compliance remediation across 3 clinics before our audit in Q3.',
+        142000,168000,194000,'high','Rate-card: 80 days Security at $1,550/day, timeline ×1.25 (urgent), complexity ×1.25 (hipaa, zero trust).',
+        b('Cybersecurity',1550,80,1.25,1.25,'ai:claude'),null,'reges',[{body:'Left voicemail — audit deadline is hard. Priority.',created_at:ago(1),remind_at:new Date(now-86400000).toISOString().slice(0,10)}]),
+      mk(3,'LAK-9D45F1','Tomas Reingard','Kessler & Vane','treingard@kesslervane.com','Digital Platforms','$25k–$50k','3–6 months','LinkedIn','quoted',
+        'Client portal rebuild — document exchange, e-sign, billing. React front end, needs SSO with their Azure AD.',
+        30000,38500,47000,'medium','Rate-card: 24 days Platforms at $1,400/day, timeline ×0.95, complexity ×1.06 (integration).',
+        b('Digital Platforms',1400,24,0.95,1.06,'rate-card'),42000,'form',[{body:'Sent proposal at $42k fixed. Awaiting sign-off from partners.',created_at:ago(2),remind_at:new Date(now+2*86400000).toISOString().slice(0,10)}]),
+      mk(4,'LAK-1C6A22','Priya Anand','Volt Mobility','priya@voltmobility.io','Cloud','$50k–$100k','1–3 months','Referral','won',
+        'Multi-region migration off a single EC2 box to a resilient, autoscaling setup. Real-time telemetry from 12k vehicles.',
+        58000,72000,86000,'high','Rate-card: 45 days Cloud at $1,450/day, complexity ×1.14 (multi-region, real-time, migration).',
+        b('Cloud',1450,45,1,1.14,'rate-card'),75000,'reges',[{body:'Signed at $75k. Kickoff next Monday.',created_at:ago(4),remind_at:null}]),
+      mk(5,'LAK-5E90B7','Grant Halloway','Aperture Retail','grant.h@aperture-retail.com','AI Engineering','$10k–$25k','Flexible','Google','new',
+        'Exploring a demand-forecasting model for seasonal inventory. Early stage, want to understand feasibility and cost.',
+        14000,19500,25000,'medium','Rate-card: 12 days AI Engineering at $1,650/day, timeline ×0.9 (flexible).',
+        b('AI Engineering',1650,12,0.9,1,'rate-card'),null,'form',[]),
+      mk(6,'LAK-8A2D14','Sofia Lindqvist','Bergman Capital','s.lindqvist@bergmancap.se','Cybersecurity','$25k–$50k','1–3 months','Event','lost',
+        'Penetration testing and a SOC 2 readiness assessment across our trading platform.',
+        26000,34000,41000,'medium','Rate-card: 24 days Security at $1,550/day, complexity ×0.95.',
+        b('Cybersecurity',1550,24,1,0.95,'rate-card'),null,'form',[{body:'Went with an incumbent vendor. Keep warm for next cycle.',created_at:ago(6),remind_at:null}]),
+      mk(7,'LAK-2F77C3','David Okonkwo','Lattice Studios','david@latticestudios.com','Digital Platforms','Under $10k','ASAP / urgent','LinkedIn','reviewing',
+        'Marketing site + headless CMS, launching a product in 5 weeks. Need it fast and clean.',
+        8000,11500,15000,'low','Rate-card: 5 days Platforms at $1,400/day, timeline ×1.25 (urgent).',
+        b('Digital Platforms',1400,5,1.25,1,'rate-card'),null,'reges',[]),
+    ];
+  }
+}
+</script>
+</body>
+</html>

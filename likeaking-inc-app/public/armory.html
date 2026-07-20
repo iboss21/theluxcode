@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="vendor/fonts.css">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#070b15;font-family:"Montserrat",system-ui,sans-serif;color:#eef1f6;font-weight:300;-webkit-font-smoothing:antialiased;}
+.mar{font-family:"Marcellus",serif;font-weight:400;}
+.kick{font-family:"Montserrat";font-weight:400;letter-spacing:.24em;text-transform:uppercase;}
+a{color:inherit;text-decoration:none;}
+::selection{background:rgba(182,130,53,.3);color:#fff;}
+::-webkit-scrollbar{width:10px;}::-webkit-scrollbar-thumb{background:rgba(205,214,228,.14);border-radius:6px;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(1200px 620px at 82% -8%,rgba(20,32,59,.6),transparent),#070b15;">
+
+  <!-- Header -->
+  <header style="max-width:1200px;margin:0 auto;padding:64px 40px 40px;">
+    <div class="mar" style="font-size:20px;">Like a King <span style="color:#b68235;font-size:12px;letter-spacing:.2em;">INC.</span></div>
+    <div class="kick" style="font-size:10px;color:#7f8db0;margin-top:26px;">The Armory · Open-Source Arsenal</div>
+    <h1 class="mar" style="font-size:clamp(38px,5.4vw,74px);line-height:1.04;margin:16px 0 20px;color:#f4f6fa;max-width:900px;">Own the whole stack. <span style="color:#aab6cc;font-style:italic;">Pay for none of it.</span></h1>
+    <p style="font-size:16px;line-height:1.75;color:#8b95ab;max-width:640px;margin:0;">Every subscription a modern shop rents — CRM, email, support, analytics, AI — has a battle-tested free, self-hosted equal. Run them on the Hetzner box or Hostinger. This is the curated arsenal, matched to what it replaces.</p>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:26px;font-size:11px;color:#6f7994;">
+      <span style="border:1px solid rgba(205,214,228,.14);border-radius:20px;padding:7px 14px;">Star counts approximate · verify live on GitHub</span>
+      <span style="border:1px solid rgba(205,214,228,.14);border-radius:20px;padding:7px 14px;">Check each license before commercial use</span>
+    </div>
+
+    <!-- My Stack launcher: browse below, launch what you've deployed -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:28px;padding:16px 20px;border:1px solid rgba(205,214,228,.12);border-radius:10px;background:rgba(12,19,34,.5);">
+      <span class="kick" style="font-size:9px;color:#7f8db0;">My stack · base domain</span>
+      <input value="{{ baseDomain }}" onInput="{{ onDomain }}" placeholder="likeaking.pro" style="flex:1;min-width:160px;background:transparent;border:0;border-bottom:1px solid rgba(205,214,228,.24);color:#eef1f6;font-size:15px;padding:6px 0;font-family:Montserrat;" />
+      <span style="font-size:11px;color:#6f7994;"><span style="color:#2f9e7e;">{{ liveCount }}</span> deployed · flip the dot on a card once it's live to launch it</span>
+    </div>
+  </header>
+
+  <!-- Starter stack callout -->
+  <section style="max-width:1200px;margin:0 auto;padding:0 40px 44px;">
+    <div style="border:1px solid rgba(182,130,53,.4);border-radius:12px;padding:30px 34px;background:linear-gradient(180deg,rgba(182,130,53,.06),transparent);">
+      <div class="kick" style="font-size:10px;color:#b68235;">Recommended starter stack · one 8–16GB VPS</div>
+      <p style="font-size:15px;line-height:1.8;color:#cdd6e4;margin:16px 0 0;max-width:820px;">Don't boil the ocean. Stand up four tools first and you cover 90% of what the SaaS bills were doing:
+      <span style="color:#f4f6fa;">Twenty</span> (CRM) · <span style="color:#f4f6fa;">Mautic</span> (email/marketing) · <span style="color:#f4f6fa;">Chatwoot</span> (support inbox) · <span style="color:#f4f6fa;">n8n + Ollama</span> (automation + private AI). Add the rest as you feel the pinch. Deploy them all with <span style="color:#f4f6fa;">Coolify</span> so you're not hand-wiring Docker, SSL, and backups.</p>
+    </div>
+  </section>
+
+  <!-- Filter -->
+  <nav style="max-width:1200px;margin:0 auto;padding:0 40px 26px;display:flex;gap:9px;flex-wrap:wrap;">
+    <sc-for list="{{ cats }}" as="c" hint-placeholder-count="8">
+      <button onClick="{{ c.pick }}" style="{{ c.style }}" style-hover="border-color:#b68235;color:#eef1f6;">{{ c.label }}</button>
+    </sc-for>
+  </nav>
+
+  <!-- Groups -->
+  <main style="max-width:1200px;margin:0 auto;padding:0 40px 80px;">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+      <section style="margin-bottom:52px;">
+        <div style="display:flex;align-items:baseline;gap:14px;border-bottom:1px solid rgba(205,214,228,.1);padding-bottom:14px;margin-bottom:24px;">
+          <h2 class="mar" style="font-size:26px;color:#f4f6fa;margin:0;">{{ g.label }}</h2>
+          <span style="font-size:11px;color:#7f8db0;">{{ g.replaces }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+          <sc-for list="{{ g.tools }}" as="t" hint-placeholder-count="3">
+            <div style="{{ t.cardStyle }}">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">
+                <span class="mar" style="font-size:19px;color:#f4f6fa;">{{ t.name }}</span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:11px;color:#d8b877;white-space:nowrap;">{{ t.stars }}</span>
+                  <button onClick="{{ t.toggle }}" title="Mark deployed / not" style="{{ t.dotStyle }}"></button>
+                </div>
+              </div>
+              <div style="font-size:11px;color:#7f8db0;margin-top:5px;">replaces <span style="color:#aab6cc;">{{ t.replaces }}</span></div>
+              <p style="font-size:13px;line-height:1.6;color:#8b95ab;margin:13px 0 16px;">{{ t.desc }}</p>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#aab6cc;border:1px solid rgba(205,214,228,.16);border-radius:4px;padding:3px 8px;">{{ t.license }}</span>
+                <span style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#7f8db0;">{{ t.stack }}</span>
+                <a href="{{ t.launchHref }}" target="_blank" style="{{ t.launchStyle }}">{{ t.launchLabel }}</a>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+  </main>
+
+  <footer style="max-width:1200px;margin:0 auto;padding:30px 40px 60px;border-top:1px solid rgba(205,214,228,.1);font-size:11px;color:#6f7994;line-height:1.7;">
+    Curated {{ today }} for Like a King Inc. Licenses and star counts shift — confirm on each repo. AGPL tools require you to publish source only if you modify and host them publicly; MIT/Apache are unrestricted. Nothing here bills per seat.
+  </footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  KEY = 'lak_armory_v1';
+  state = { cat: 'All', baseDomain: 'likeaking.pro', live: {} };
+
+  componentDidMount() {
+    try { const s = JSON.parse(localStorage.getItem(this.KEY) || '{}');
+      this.setState({ baseDomain: s.baseDomain || 'likeaking.pro', live: s.live || {} }); } catch (e) {}
+  }
+  persist(next) {
+    const s = { baseDomain: next.baseDomain ?? this.state.baseDomain, live: next.live ?? this.state.live };
+    try { localStorage.setItem(this.KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  onDomain(e) { const v = e.target.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,''); this.setState({ baseDomain: v }); this.persist({ baseDomain: v }); }
+  toggleLive(key) { return () => { const live = { ...this.state.live, [key]: !this.state.live[key] }; this.setState({ live }); this.persist({ live }); }; }
+  slug(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,12); }
+
+  data() {
+    return [
+      { key:'crm', label:'CRM & Sales', replaces:'Salesforce · HubSpot · Pipedrive', tools:[
+        { name:'Twenty', stars:'≈50K★', replaces:'Salesforce', license:'AGPL-3.0', stack:'TypeScript · GraphQL', url:'https://github.com/twentyhq/twenty', desc:'Modern, Attio-style CRM with custom objects, pipelines and a clean API. The default pick for a technical team; MCP server for AI-agent hooks.' },
+        { name:'EspoCRM', stars:'≈8K★', replaces:'HubSpot', license:'GPL-3.0', stack:'PHP · MySQL', url:'https://github.com/espocrm/espocrm', desc:'Configure 90% from the admin panel — no code. The pragmatic choice; runs on plain PHP hosting like Hostinger.' },
+        { name:'SuiteCRM', stars:'≈5K★', replaces:'Salesforce', license:'GPL-3.0', stack:'PHP', url:'https://github.com/salesagility/SuiteCRM', desc:'The full mature suite — leads, quotes, cases, reporting — nothing paywalled. Heavier, but battle-tested for years.' },
+      ]},
+      { key:'mail', label:'Marketing & Email', replaces:'Mailchimp · HubSpot Marketing · SendGrid', tools:[
+        { name:'Mautic', stars:'≈9.5K★', replaces:'HubSpot Marketing', license:'GPL-3.0', stack:'PHP · MySQL', url:'https://github.com/mautic/mautic', desc:'The mature marketing-automation platform: drag-drop campaigns, lead scoring, landing pages, multi-channel nurture.' },
+        { name:'Listmonk', stars:'≈19K★', replaces:'Mailchimp', license:'AGPL-3.0', stack:'Go · Postgres', url:'https://github.com/knadh/listmonk', desc:'Blazing newsletter server — hundreds of thousands of emails/hour on modest hardware. Single Go binary, very light.' },
+        { name:'useSend', stars:'new', replaces:'Resend · SendGrid · Mailgun', license:'open-source', stack:'TypeScript', url:'https://github.com/unsend-dev/unsend', desc:'Self-hosted transactional email API — a drop-in for the paid sending APIs when you outgrow raw SMTP.' },
+      ]},
+      { key:'support', label:'Support & Inbox', replaces:'Zendesk · Intercom · HubSpot Service', tools:[
+        { name:'Chatwoot', stars:'≈22K★', replaces:'Intercom · Zendesk', license:'MIT-ish', stack:'Rails · Vue', url:'https://github.com/chatwoot/chatwoot', desc:'Omni-channel support inbox — live chat, email, WhatsApp, Telegram in one place. The REGES concierge could hand off here.' },
+        { name:'FreeScout', stars:'≈4K★', replaces:'Help Scout', license:'AGPL-3.0', stack:'PHP · MySQL', url:'https://github.com/freescout-help-desk/freescout', desc:'Lightweight shared-inbox help desk that runs on ordinary PHP hosting. Feels like Help Scout, costs nothing.' },
+        { name:'osTicket', stars:'≈3.5K★', replaces:'Zendesk', license:'GPL-2.0', stack:'PHP · MySQL', url:'https://github.com/osTicket/osTicket', desc:'The veteran ticketing system — SLAs, queues, canned replies. Unglamorous and rock-solid.' },
+      ]},
+      { key:'forms', label:'Forms & Feedback', replaces:'Typeform · Google Forms · SurveyMonkey', tools:[
+        { name:'Formbricks', stars:'≈12K★', replaces:'Typeform · Qualtrics', license:'AGPL-3.0', stack:'TypeScript', url:'https://github.com/formbricks/formbricks', desc:'Surveys, in-app micro-surveys, NPS and full response analytics. The direct replacement for HubSpot/Typeform forms.' },
+        { name:'OpnForm', stars:'≈8K★', replaces:'Typeform · Google Forms', license:'AGPL-3.0', stack:'Vue · Laravel', url:'https://github.com/JhumanJ/OpnForm', desc:'Fast, pretty no-code form builder you can embed anywhere — a clean Typeform stand-in.' },
+      ]},
+      { key:'sched', label:'Scheduling', replaces:'Calendly · Acuity', tools:[
+        { name:'Cal.com', stars:'≈33K★', replaces:'Calendly', license:'AGPL-3.0', stack:'Next.js', url:'https://github.com/calcom/cal.com', desc:'The polished open Calendly — booking pages, routing, team round-robin, workflows. Embeds into the site directly.' },
+        { name:'Easy!Appointments', stars:'≈4K★', replaces:'Acuity', license:'GPL-3.0', stack:'PHP · MySQL', url:'https://github.com/alextselegidis/easyappointments', desc:'Simple appointment scheduler on plain PHP — ideal if you just want a booking calendar on Hostinger.' },
+      ]},
+      { key:'docs', label:'Docs & E-Sign', replaces:'DocuSign · PandaDoc', tools:[
+        { name:'DocuSeal', stars:'≈9K★', replaces:'DocuSign', license:'AGPL-3.0', stack:'Ruby', url:'https://github.com/docusealco/docuseal', desc:'The most complete open DocuSign — templates, multi-party signing, audit trails, API. Running in under a minute.' },
+        { name:'Documenso', stars:'≈11K★', replaces:'DocuSign · PandaDoc', license:'AGPL-3.0', stack:'Next.js · Postgres', url:'https://github.com/documenso/documenso', desc:'The best-looking signing platform — modern TypeScript stack, custom branding, SSO. Great for client contracts.' },
+      ]},
+      { key:'invoice', label:'Invoicing & Time', replaces:'QuickBooks · Bonsai · Harvest', tools:[
+        { name:'Invoice Ninja', stars:'≈8K★', replaces:'QuickBooks · Bonsai', license:'Elastic-2.0', stack:'PHP/Laravel', url:'https://github.com/invoiceninja/invoiceninja', desc:'Quotes, invoices, recurring billing, payments, client portal. Pairs perfectly with the CRM for the whole money side.' },
+        { name:'Kimai', stars:'≈4K★', replaces:'Harvest · Toggl', license:'AGPL-3.0', stack:'PHP · Symfony', url:'https://github.com/kimai/kimai', desc:'Team time-tracking with reporting and exportable timesheets — feed billable hours straight into invoices.' },
+      ]},
+      { key:'analytics', label:'Analytics', replaces:'Google Analytics · Mixpanel · Amplitude', tools:[
+        { name:'Plausible', stars:'≈50K★', replaces:'Google Analytics', license:'AGPL-3.0', stack:'Elixir · ClickHouse', url:'https://github.com/plausible/analytics', desc:'Cookieless, GDPR-clean web analytics in a <1KB script. Put it on the landing page today.' },
+        { name:'Umami', stars:'≈27K★', replaces:'Google Analytics', license:'MIT', stack:'Next.js · Postgres', url:'https://github.com/umami-software/umami', desc:'The lightest privacy analytics — page views, referrers, events. Cheapest to run of the three.' },
+        { name:'PostHog', stars:'≈27K★', replaces:'Mixpanel · Amplitude', license:'MIT', stack:'Python · ClickHouse', url:'https://github.com/PostHog/posthog', desc:'Full product analytics — funnels, session replay, feature flags, A/B tests. Heavier; give it its own box.' },
+      ]},
+      { key:'auto', label:'Automation & AI Agents', replaces:'Zapier · Make · Retool', tools:[
+        { name:'n8n', stars:'≈196K★', replaces:'Zapier · Make', license:'fair-code', stack:'TypeScript', url:'https://github.com/n8n-io/n8n', desc:'The deepest self-hosted automation — 400+ integrations, custom code nodes, native AI/LangChain agents. Unlimited runs when self-hosted.' },
+        { name:'Activepieces', stars:'≈14K★', replaces:'Zapier', license:'MIT', stack:'TypeScript', url:'https://github.com/activepieces/activepieces', desc:'Simpler, Zapier-like UX with 700+ pieces that double as MCP servers for AI agents. Easiest to hand a non-dev.' },
+        { name:'Windmill', stars:'≈12K★', replaces:'Retool · Airplane', license:'AGPL-3.0', stack:'Rust · Python/TS', url:'https://github.com/windmill-labs/windmill', desc:'Turn scripts (Python/TS/Go) into workflows + auto-generated internal UIs. Rust-fast; code-first with AI Agent steps.' },
+        { name:'Dify', stars:'≈trending', replaces:'OpenAI Assistants · Stack AI', license:'open-source', stack:'Python · React', url:'https://github.com/langgenius/dify', desc:'Visual builder for LLM apps and agents with RAG built in. Great for shipping a customer-facing AI feature fast.' },
+        { name:'Flowise', stars:'≈trending', replaces:'LangChain UI · Voiceflow', license:'Apache-2.0', stack:'Node · React', url:'https://github.com/FlowiseAI/Flowise', desc:'Drag-and-drop LLM chains and chatbots. The quickest way to prototype a RAG assistant over your own docs.' },
+      ]},
+      { key:'localai', label:'Local AI · Run Models Yourself', replaces:'OpenAI · Anthropic API bills', tools:[
+        { name:'Ollama', stars:'≈trending', replaces:'OpenAI API', license:'MIT', stack:'Go · llama.cpp', url:'https://github.com/ollama/ollama', desc:'The easiest way to run Qwen/Llama/DeepSeek locally. Exposes an OpenAI-compatible API — the REGES pricing engine can point straight at it.' },
+        { name:'Open WebUI', stars:'≈136K★', replaces:'ChatGPT Team', license:'MIT', stack:'Svelte · Python', url:'https://github.com/open-webui/open-webui', desc:'The best ChatGPT-style front end for Ollama — multi-user, RBAC, RAG, tools. Give the team private AI chat.' },
+        { name:'LibreChat', stars:'≈22K★', replaces:'ChatGPT · Poe', license:'MIT', stack:'Node · Mongo', url:'https://github.com/danny-avila/LibreChat', desc:'One interface across GPT, Claude, Gemini and local models, with agents, MCP, code interpreter and enterprise auth.' },
+        { name:'AnythingLLM', stars:'≈54K★', replaces:'NotebookLM · custom RAG', license:'MIT', stack:'JavaScript', url:'https://github.com/Mintplex-Labs/anything-llm', desc:'Drop-in document RAG + agents with built-in vector DB. Point it at LM Studio/Ollama for a private knowledge base.' },
+        { name:'vLLM', stars:'≈trending', replaces:'hosted inference', license:'Apache-2.0', stack:'Python · CUDA', url:'https://github.com/vllm-project/vllm', desc:'Production inference server — high throughput, multi-GPU, OpenAI-compatible. Use on the Hetzner box when you serve many users.' },
+      ]},
+      { key:'work', label:'Knowledge, PM & Data', replaces:'Jira · Notion · Airtable', tools:[
+        { name:'Plane', stars:'≈trending', replaces:'Jira · Linear', license:'AGPL-3.0', stack:'Next.js · Django', url:'https://github.com/makeplane/plane', desc:'Modern issues, cycles and roadmaps — the self-hosted Jira/Linear pick for running delivery.' },
+        { name:'Outline', stars:'≈trending', replaces:'Notion · Confluence', license:'BSL', stack:'Node · React', url:'https://github.com/outline/outline', desc:'Fast team wiki/knowledge base with great search. Your SOPs, playbooks and client docs in one place.' },
+        { name:'NocoDB', stars:'≈trending', replaces:'Airtable', license:'AGPL-3.0', stack:'Node · Vue', url:'https://github.com/nocodb/nocodb', desc:'Turns any SQL database into an Airtable-style smart spreadsheet. Great lightweight ops layer over your own data.' },
+        { name:'AppFlowy', stars:'≈trending', replaces:'Notion', license:'AGPL-3.0', stack:'Rust · Flutter', url:'https://github.com/AppFlowy-IO/AppFlowy', desc:'Notion-style docs, wikis and boards, local-first. Good if you want an offline-capable knowledge workspace.' },
+      ]},
+      { key:'infra', label:'Infra, Security & Ops', replaces:'Datadog · Okta · 1Password · Vercel', tools:[
+        { name:'Coolify', stars:'≈trending', replaces:'Vercel · Heroku · Netlify', license:'Apache-2.0', stack:'PHP/Laravel', url:'https://github.com/coollabsio/coolify', desc:'Self-hosted deploy platform — one-click Docker apps, auto-SSL, backups, DBs. This is how you run everything else on this page without becoming a sysadmin.' },
+        { name:'Uptime Kuma', stars:'≈trending', replaces:'UptimeRobot · Pingdom', license:'MIT', stack:'Node · Vue', url:'https://github.com/louislam/uptime-kuma', desc:'Beautiful uptime monitoring + status pages, 90+ alert channels. Runs on a 1GB VPS. Set it up first.' },
+        { name:'Metabase', stars:'≈trending', replaces:'Looker · Tableau', license:'AGPL-3.0', stack:'Clojure · React', url:'https://github.com/metabase/metabase', desc:'No-code BI dashboards over any database — point it at the REGES MySQL for pipeline reporting.' },
+        { name:'Vaultwarden', stars:'≈trending', replaces:'1Password · LastPass', license:'AGPL-3.0', stack:'Rust', url:'https://github.com/dani-garcia/vaultwarden', desc:'Lightweight Bitwarden server — end-to-end encrypted team password vault. Tiny footprint.' },
+        { name:'Authentik', stars:'≈trending', replaces:'Okta · Auth0', license:'MIT', stack:'Python', url:'https://github.com/goauthentik/authentik', desc:'Self-hosted SSO/identity — one login across every tool above (SAML, OAuth, LDAP).' },
+        { name:'Nextcloud', stars:'≈trending', replaces:'Google Workspace · Dropbox', license:'AGPL-3.0', stack:'PHP', url:'https://github.com/nextcloud/server', desc:'Files, calendar, contacts, docs, video calls — the self-hosted Google Workspace for the whole team.' },
+      ]},
+    ];
+  }
+
+  pick(cat){ return () => this.setState({ cat }); }
+
+  renderVals(){
+    const all = this.data();
+    const active = this.state.cat;
+    const catDefs = [{key:'All', label:'All'}, ...all.map(g=>({key:g.key, label:g.label}))];
+    const cats = catDefs.map(c=>({
+      label:c.label, pick:this.pick(c.key),
+      style:`background:${active===c.key?'rgba(182,130,53,.16)':'transparent'};border:1px solid ${active===c.key?'#b68235':'rgba(205,214,228,.16)'};color:${active===c.key?'#eef1f6':'#8b95ab'};font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:9px 15px;border-radius:20px;cursor:pointer;transition:.2s;font-family:Montserrat;`
+    }));
+    const domain = this.state.baseDomain || 'likeaking.pro';
+    const liveMap = this.state.live || {};
+    let liveCount = 0;
+    const decorate = (g) => ({ ...g, tools: g.tools.map(t => {
+      const key = t.name;
+      const isLive = !!liveMap[key];
+      if (isLive) liveCount++;
+      const url = 'https://' + this.slug(t.name) + '.' + domain;
+      return { ...t,
+        cardStyle:`display:block;border:1px solid ${isLive?'rgba(47,158,126,.4)':'rgba(205,214,228,.1)'};border-radius:10px;padding:22px 24px;background:rgba(12,19,34,.5);transition:border-color .2s,transform .2s;`,
+        dotStyle:`flex:none;width:12px;height:12px;border-radius:50%;border:0;cursor:pointer;background:${isLive?'#2f9e7e':'rgba(205,214,228,.2)'};box-shadow:${isLive?'0 0 8px rgba(47,158,126,.7)':'none'};`,
+        toggle:this.toggleLive(key),
+        launchHref: isLive ? url : t.url,
+        launchStyle: isLive
+          ? 'margin-left:auto;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#0a1120;background:#b68235;border-radius:5px;padding:6px 12px;font-weight:500;'
+          : 'margin-left:auto;font-size:11px;color:#b68235;',
+        launchLabel: isLive ? 'Launch ↗' : 'GitHub ↗',
+      };
+    })});
+    // count across ALL tools (not just filtered) so the header total is stable
+    all.forEach(g => g.tools.forEach(t => { if (liveMap[t.name]) {} }));
+    liveCount = Object.keys(liveMap).filter(k => liveMap[k]).length;
+    const groups = (active==='All' ? all : all.filter(g=>g.key===active)).map(decorate);
+    return { cats, groups, baseDomain:domain, liveCount,
+      onDomain:(e)=>this.onDomain(e),
+      today:new Date().toLocaleDateString([], {month:'long', year:'numeric'}) };
+  }
+}
+</script>
+</body>
+</html>

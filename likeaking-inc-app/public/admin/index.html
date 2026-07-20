@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Like a King Inc. — Operations</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/webp" href="/images/lion-crest.webp">
+<link rel="stylesheet" href="/vendor/fonts.css">
+<script src="/admin/vendor/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#070b14; --ink2:#0b1120; --ink3:#0f1728; --panel:rgba(255,255,255,.02);
+    --line:rgba(205,214,228,.10); --line2:rgba(205,214,228,.16);
+    --silver:#eef1f6; --dim:#aab6cc; --faint:#8b95ab; --ghost:#69738c;
+    --gold:#b68235; --gold2:#e1ad66; --gold-soft:rgba(182,130,53,.12);
+    --ok:#7fd1a3; --info:#9fb4d8; --warn:#e6b566; --bad:#d98a8a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--ink);color:var(--silver);font-family:"Montserrat",system-ui,-apple-system,sans-serif;font-weight:300;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(1200px 700px at 82% -8%,rgba(31,52,92,.30),transparent 60%),radial-gradient(700px 500px at 0% 100%,rgba(182,130,53,.06),transparent 65%)}
+  a{color:inherit;text-decoration:none}
+  .mar{font-family:"Marcellus",serif;font-weight:400}
+  h1{font-family:"Marcellus",serif;font-weight:400;font-size:25px;letter-spacing:.01em;margin:0}
+  .kick{font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--faint);font-weight:400}
+  .gold{color:var(--gold2)} .muted{color:var(--faint)} .small{font-size:12px} .tiny{font-size:11px}
+  /* controls */
+  .btn{border:1px solid var(--line2);background:transparent;color:var(--dim);padding:8px 15px;font-size:12px;border-radius:5px;cursor:pointer;transition:.18s;font-family:inherit;letter-spacing:.02em;white-space:nowrap}
+  .btn:hover{border-color:var(--gold);color:var(--silver)}
+  .btn.solid{background:var(--silver);color:var(--ink);border-color:var(--silver);font-weight:500}
+  .btn.solid:hover{background:#fff}
+  .btn.gold{border-color:rgba(182,130,53,.5);color:var(--gold2)}
+  .btn.gold:hover{background:var(--gold-soft)}
+  .btn.sm{padding:5px 11px;font-size:11px}
+  .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .btn:disabled{opacity:.45;cursor:default}
+  label{display:block}
+  input,select,textarea{width:100%;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:5px;color:var(--silver);padding:9px 11px;font-family:inherit;font-size:13px;font-weight:300;outline:none;transition:.15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold);background:rgba(0,0,0,.28)}
+  select option{background:var(--ink2)}
+  input[type=checkbox]{width:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:9px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;border:1px solid}
+  .t-new,.t-draft{color:var(--gold2);border-color:rgba(182,130,53,.4)}
+  .t-reviewing,.t-sent{color:var(--info);border-color:rgba(159,180,216,.4)}
+  .t-quoted{color:var(--silver);border-color:rgba(205,214,228,.3)}
+  .t-won,.t-paid,.t-active,.t-confirmed{color:var(--ok);border-color:rgba(127,209,163,.4)}
+  .t-lost,.t-cancelled,.t-overdue{color:var(--bad);border-color:rgba(217,138,138,.35)}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(205,214,228,.14);border-radius:5px}::-webkit-scrollbar-thumb:hover{background:rgba(205,214,228,.24)}
+  /* layout */
+  #app{display:flex;min-height:100vh;position:relative;z-index:1}
+  #side{width:236px;border-right:1px solid var(--line);padding:24px 16px 18px;position:fixed;top:0;bottom:0;background:linear-gradient(180deg,var(--ink2),var(--ink));display:flex;flex-direction:column;z-index:20}
+  #main{margin-left:236px;flex:1;padding:30px 34px 60px;max-width:1440px}
+  .brand{display:flex;align-items:center;gap:11px;padding:0 6px 4px}
+  .brand svg{flex:none}
+  .brand .bt{font-family:"Marcellus",serif;font-size:16px;line-height:1.05}
+  .brand .bs{font-size:8.5px;letter-spacing:.24em;color:var(--gold2);text-transform:uppercase;margin-top:3px}
+  .navgrp{font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ghost);margin:18px 8px 6px}
+  .navlink{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:6px;color:var(--dim);cursor:pointer;font-size:12.5px;margin-top:1px;transition:.15s;position:relative}
+  .navlink:hover{background:rgba(255,255,255,.03);color:var(--silver)}
+  .navlink.active{background:var(--gold-soft);color:var(--silver)}
+  .navlink.active::before{content:"";position:absolute;left:-16px;top:8px;bottom:8px;width:2px;background:var(--gold2);border-radius:2px}
+  .navlink .ic{width:15px;height:15px;flex:none;opacity:.85}
+  .navlink .badge{margin-left:auto;font-size:10px;color:var(--faint);background:rgba(255,255,255,.05);border-radius:20px;padding:1px 7px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tile{padding:18px 20px;position:relative;overflow:hidden}
+  .tile .kick{margin-bottom:8px}
+  .tile h2{margin:0;font-size:28px;font-family:"Marcellus",serif;font-weight:400}
+  .tile .sub{font-size:11px;color:var(--faint);margin-top:5px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ghost);padding:11px 13px;border-bottom:1px solid var(--line);font-weight:400}
+  td{padding:12px 13px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tr[data-row]{cursor:pointer;transition:.12s}tr[data-row]:hover{background:rgba(255,255,255,.025)}
+  .overlay{position:fixed;inset:0;background:rgba(4,7,14,.74);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:60;padding:22px;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{width:min(740px,96vw);max-height:90vh;overflow:auto;background:var(--ink2);border:1px solid var(--line2);border-radius:12px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .chip{border:1px solid var(--line);background:transparent;color:var(--faint);padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:.15s}
+  .chip:hover{color:var(--silver)}
+  .chip.active{border-color:rgba(182,130,53,.5);background:var(--gold-soft);color:var(--silver)}
+  .flex{display:flex}.between{justify-content:space-between}.center{align-items:center}.wrap{flex-wrap:wrap}.gap{gap:8px}.gap12{gap:12px}.col{flex-direction:column}
+  .field{margin-bottom:14px}.field label{margin-bottom:6px}
+  .divide{height:1px;background:var(--line);margin:20px 0}
+  .empty{text-align:center;padding:48px 20px;color:var(--faint)}
+  .empty svg{opacity:.4;margin-bottom:12px}
+  /* kanban */
+  .kan{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start}
+  .kcol{background:rgba(255,255,255,.015);border:1px solid var(--line);border-radius:9px;padding:10px;min-height:200px}
+  .kcol.over{border-color:var(--gold);background:var(--gold-soft)}
+  .kcol h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:2px 4px 10px;display:flex;justify-content:space-between;font-weight:400}
+  .kcard{background:var(--ink3);border:1px solid var(--line);border-radius:7px;padding:11px 12px;margin-bottom:8px;cursor:grab;transition:.12s}
+  .kcard:hover{border-color:var(--line2);transform:translateY(-1px)}
+  .kcard:active{cursor:grabbing}
+  .kcard .nm{font-size:13px;color:var(--silver)}
+  .kcard .mt{font-size:11px;color:var(--faint);margin-top:4px;display:flex;justify-content:space-between}
+  /* calendar */
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal .dow{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);text-align:center;padding:4px}
+  .cell{min-height:92px;border:1px solid var(--line);border-radius:7px;padding:7px;background:rgba(255,255,255,.012)}
+  .cell.other{opacity:.35}
+  .cell.today{border-color:rgba(182,130,53,.5)}
+  .cell .dn{font-size:11px;color:var(--faint);margin-bottom:5px}
+  .ev{font-size:10.5px;background:var(--gold-soft);border-left:2px solid var(--gold);border-radius:3px;padding:2px 5px;margin-bottom:3px;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev.bk{background:rgba(159,180,216,.12);border-left-color:var(--info)}
+  .switch{position:relative;display:inline-block;width:40px;height:22px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .sl{position:absolute;inset:0;background:rgba(255,255,255,.10);border-radius:22px;transition:.2s;cursor:pointer}
+  .sl::before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#c9d2e2;border-radius:50%;transition:.2s}
+  .switch input:checked+.sl{background:var(--gold)}
+  .switch input:checked+.sl::before{transform:translateX(18px);background:#fff}
+  .setrow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);gap:16px}
+  .setrow:last-child{border-bottom:none}
+  .setrow .lbl{font-size:13px}.setrow .lbl small{display:block;color:var(--faint);font-size:11px;margin-top:2px;font-weight:300}
+  .setrow .ctl{flex:none;width:210px}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--ink3);border:1px solid var(--line2);border-left:3px solid var(--ok);border-radius:7px;padding:12px 16px;font-size:13px;z-index:80;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:slideup .25s ease}
+  @keyframes slideup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+  @media(max-width:1000px){.kan{grid-template-columns:1fr 1fr}.grid4{grid-template-columns:1fr 1fr}}
+  @media(max-width:860px){#side{position:static;width:100%;height:auto;flex-direction:column}#main{margin-left:0;padding:20px}#app{flex-direction:column}.grid4,.grid3,.grid2,.kan{grid-template-columns:1fr}.setrow{flex-direction:column;align-items:flex-start}.setrow .ctl{width:100%}}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
+<div id="login" class="overlay" style="display:none">
+  <div class="card" style="width:min(410px,94vw);padding:34px;text-align:center">
+    <div id="loginCrest" style="margin-bottom:16px"></div>
+    <div class="mar" style="font-size:21px">Like a King <span class="gold" style="font-size:11px;letter-spacing:.22em">INC.</span></div>
+    <div class="kick" style="margin-top:7px">Operations Console</div>
+    <p class="muted small" style="margin:14px 0 18px">Revenue, pipeline, clients &amp; the Armory. Team access only.</p>
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="pwerr" class="small" style="color:var(--bad);display:none;margin-top:8px">Incorrect password.</div>
+    <button class="btn solid" style="width:100%;margin-top:16px" onclick="doLogin()">Enter console</button>
+  </div>
+</div>
+
+<!-- ── APP ───────────────────────────────────────────────────────────────── -->
+<div id="app" style="display:none">
+  <nav id="side">
+    <div class="brand" id="brand"></div>
+    <div style="overflow-y:auto;flex:1;margin-top:6px" id="nav"></div>
+    <div style="padding-top:10px;border-top:1px solid var(--line);margin-top:8px">
+      <a class="navlink" href="/" target="_blank"><span class="ic" id="icext"></span>View website</a>
+      <div class="navlink" onclick="doLogout()"><span class="ic" id="icout"></span>Sign out</div>
+    </div>
+  </nav>
+  <main id="main"><div id="view"></div></main>
+</div>
+
+<script>
+/* ═══ helpers ═══ */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+let CFG = {currency_symbol:'$', locale:'en-US'};
+const money = n => CFG.currency_symbol+Number(n||0).toLocaleString(CFG.locale||'en-US');
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STATUSES=['new','reviewing','quoted','won','lost'];
+const SLABEL={new:'New',reviewing:'Reviewing',quoted:'Quoted',won:'Won',lost:'Lost'};
+let STATE={inquiries:[],metrics:null,filter:'all',charts:{},customers:[],invoices:[],bookings:[],events:[],settings:null,calDate:new Date()};
+
+async function api(action,extra={}){
+  const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra})});
+  return r;
+}
+async function j(action,extra){const r=await api(action,extra);if(r.status===401){showLogin();throw new Error('auth');}return r.json();}
+function toast(msg,kind){const t=document.createElement('div');t.className='toast';if(kind==='bad')t.style.borderLeftColor='var(--bad)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
+function closeModal(){$('.overlay:not(#login)')?.remove();}
+function modal(html){closeModal();const b=document.createElement('div');b.className='overlay';b.onclick=e=>{if(e.target===b)b.remove();};b.innerHTML=`<div class="modal">${html}</div>`;document.body.appendChild(b);return b;}
+
+/* ═══ icons (inline, stroke) ═══ */
+const IC={
+  dashboard:'<path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>',
+  pipeline:'<path d="M4 5h16M4 12h10M4 19h6"/>',
+  leads:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  customers:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 8.5a3 3 0 010 5.5M20.5 20c0-2.2-1.3-3.7-3-4.4"/>',
+  invoices:'<path d="M6 2h9l4 4v16l-2.5-1.5L14 22l-2.5-1.5L9 22l-2.5-1.5L4 22V4z"/><path d="M8 8h7M8 12h7M8 16h4"/>',
+  calendar:'<rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9h17M8 3v3M16 3v3"/>',
+  bookings:'<rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M8 3v3M16 3v3M8.5 13l2.5 2.5L16 11"/>',
+  tools:'<path d="M14.5 5.5a3.5 3.5 0 01-4.7 4.6L4 16l4 4 5.9-5.8a3.5 3.5 0 004.6-4.7l-2.4 2.4-2.1-2.1z"/>',
+  ai:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7 1.1V21a2 2 0 01-4 0v-.1A1.6 1.6 0 007 19.4l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.6 1.6 0 003 15H3a2 2 0 010-4h.1A1.6 1.6 0 004.6 9l-.1-.1a2 2 0 112.8-2.8l.1.1A1.6 1.6 0 009 4.6V3a2 2 0 014 0v.1a1.6 1.6 0 002.7 1.1l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 001.1 2.7H21a2 2 0 010 4h-.1a1.6 1.6 0 00-1.5 1z"/>',
+  ext:'<path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h5"/>',
+  out:'<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>',
+};
+const icon=(k,sz=15)=>`<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||''}</svg>`;
+
+/* Wolf crest — the Operations mark. Uses /images/wolf-crest.(webp|png) if you
+   drop your exact logo there; otherwise falls back to this built-in geometric
+   crest, so the console always looks complete. */
+function wolfSVG(size){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Like a King Inc.">
+    <defs><linearGradient id="wg${size}" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e9bd7d"/><stop offset="1" stop-color="#a9762c"/></linearGradient></defs>
+    <path d="M9 6 L27 19 L17 32 Z" fill="url(#wg${size})"/>
+    <path d="M55 6 L37 19 L47 32 Z" fill="url(#wg${size})"/>
+    <path d="M32 19 L19 25 L13 22 L20 41 L32 59 L44 41 L51 22 L45 25 Z" fill="url(#wg${size})"/>
+    <path d="M32 33 L25 41 L32 59 L39 41 Z" fill="#070b14" opacity=".38"/>
+    <path d="M23 29 L30 32.5 L23 35 Z" fill="#070b14"/>
+    <path d="M41 29 L34 32.5 L41 35 Z" fill="#070b14"/>
+    <path d="M32 45 L29 49 L32 52 L35 49 Z" fill="#070b14" opacity=".55"/>
+  </svg>`;
+}
+function wolf(size=34){
+  const fallback = 'data:image/svg+xml,'+encodeURIComponent(wolfSVG(size));
+  return `<img src="/images/wolf-crest.webp" width="${size}" height="${size}" alt="Like a King Inc." style="object-fit:contain;display:block" onerror="this.onerror=null;this.src='/images/wolf-crest.png';this.addEventListener('error',()=>{this.src='${fallback}'},{once:true})">`;
+}
+
+/* ═══ auth ═══ */
+function showLogin(){$('#login').style.display='flex';$('#app').style.display='none';$('#loginCrest').innerHTML=wolf(52);}
+function showApp(){$('#login').style.display='none';$('#app').style.display='flex';buildChrome();}
+async function doLogin(){const r=await(await api('login',{password:$('#pw').value})).json();if(r.ok){showApp();nav('dashboard');}else{$('#pwerr').style.display='block';}}
+async function doLogout(){await api('logout');showLogin();}
+
+/* ═══ chrome / nav ═══ */
+const NAV=[
+  {grp:'Revenue',items:[['dashboard','Dashboard'],['pipeline','Pipeline'],['leads','Leads & CRM']]},
+  {grp:'Clients',items:[['customers','Customers'],['invoices','Invoices']]},
+  {grp:'Schedule',items:[['calendar','Calendar'],['bookings','Bookings']]},
+  {grp:'Platform',items:[['tools','Armory · Tools'],['ai','AI · REGES'],['settings','Settings']]},
+];
+function buildChrome(){
+  $('#brand').innerHTML=`${wolf(34)}<div><div class="bt">Like a King</div><div class="bs">Inc. · Operations</div></div>`;
+  $('#nav').innerHTML=NAV.map(g=>`<div class="navgrp">${g.grp}</div>`+g.items.map(([v,l])=>`<div class="navlink" data-view="${v}"><span>${icon(v)}</span>${l}<span class="badge" id="badge-${v}" style="display:none"></span></div>`).join('')).join('');
+  $('#icext').outerHTML=icon('ext');$('#icout').outerHTML=icon('out');
+  $$('.navlink[data-view]').forEach(n=>n.onclick=()=>nav(n.dataset.view));
+}
+function setBadge(v,n){const b=$('#badge-'+v);if(!b)return;if(n){b.textContent=n;b.style.display='';}else b.style.display='none';}
+const VIEWS={dashboard:renderDashboard,pipeline:renderPipeline,leads:renderLeads,customers:renderCustomers,invoices:renderInvoices,calendar:renderCalendar,bookings:renderBookings,tools:renderTools,ai:renderAI,settings:renderSettings};
+function nav(view){$$('.navlink[data-view]').forEach(n=>n.classList.toggle('active',n.dataset.view===view));(VIEWS[view]||renderDashboard)();}
+const head=(title,right='')=>`<div class="topbar"><h1>${title}</h1><div class="flex gap center">${right}</div></div>`;
+
+/* ═══ data ═══ */
+async function loadCrm(){const [l,m]=await Promise.all([j('list'),j('metrics')]);STATE.inquiries=l.inquiries||[];STATE.metrics=m;
+  const nw=(STATE.metrics.counts||{}).new||0;setBadge('leads',nw||'');setBadge('pipeline',(STATE.metrics.pipeline_value?'':''));}
+async function loadColl(c){const r=await j('coll_list',{coll:c});STATE[c]=r.items||[];return STATE[c];}
+
+/* ═══ DASHBOARD ═══ */
+async function renderDashboard(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';
+  await loadCrm();const m=STATE.metrics;const rem=(await j('reminders')).reminders||[];
+  $('#view').innerHTML=head('Dashboard',`<span class="kick">REGES · live operations</span>`)+`
+    <div class="grid4" style="margin-bottom:16px">
+      ${tile('Pipeline value',money(m.pipeline_value),'var(--gold2)','open opportunities')}
+      ${tile('Won value',money(m.won_value),'var(--ok)','closed / signed')}
+      ${tile('Conversion',(m.conversion||0)+'%','var(--info)','won ÷ decided')}
+      ${tile('Total leads',m.total||0,'var(--silver)',(m.counts&&m.counts.new||0)+' new')}
+    </div>
+    <div class="grid3" style="margin-bottom:16px">
+      ${tile('Customers',m.customers||0,'var(--silver)','active accounts')}
+      ${tile('Invoiced outstanding',money(m.invoice_outstanding),'var(--warn)','awaiting payment')}
+      ${tile('Invoiced paid',money(m.invoice_paid),'var(--ok)','collected')}
+    </div>
+    <div class="grid2">
+      <div class="card" style="padding:20px"><div class="kick" style="margin-bottom:14px">Pipeline by stage</div><canvas id="cStatus" height="210"></canvas></div>
+      <div class="card" style="padding:20px"><div class="kick" style="margin-bottom:14px">Leads by practice</div><canvas id="cPractice" height="210"></canvas></div>
+    </div>
+    <div class="card" style="padding:20px;margin-top:16px">
+      <div class="kick" style="margin-bottom:12px">Reminders due (${rem.length})</div>
+      ${rem.length?rem.map(r=>`<div class="flex between small" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(r.name)} · <span class="muted">${esc(r.ref)}</span></span><span class="muted">${esc(r.body).slice(0,64)} · ${r.remind_at}</span></div>`).join(''):'<div class="muted small">Nothing due. Add a dated note to a lead to schedule a follow-up.</div>'}
+    </div>`;
+  drawCharts();
+}
+function tile(label,val,color,sub){return `<div class="card tile"><div class="kick">${label}</div><h2 style="color:${color||'var(--silver)'}">${val}</h2>${sub?`<div class="sub">${sub}</div>`:''}</div>`;}
+function drawCharts(){
+  const m=STATE.metrics;Object.values(STATE.charts).forEach(c=>{try{c.destroy()}catch(e){}});
+  const grid={color:'rgba(205,214,228,.07)'},tick={color:'#8b95ab',font:{size:11}};
+  STATE.charts.s=new Chart($('#cStatus'),{type:'doughnut',data:{labels:STATUSES.map(s=>SLABEL[s]),datasets:[{data:STATUSES.map(s=>(m.counts||{})[s]||0),backgroundColor:['#b68235','#9fb4d8','#cdd6e4','#7fd1a3','#5b6478'],borderColor:'#0b1120',borderWidth:2}]},options:{cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#aab6cc',font:{size:11},boxWidth:10}}}}});
+  const byp={};STATE.inquiries.forEach(i=>{const k=(i.practice||'—').split(/[&·]/)[0].trim().split(' ').slice(0,2).join(' ')||'—';byp[k]=(byp[k]||0)+1;});
+  STATE.charts.p=new Chart($('#cPractice'),{type:'bar',data:{labels:Object.keys(byp),datasets:[{data:Object.values(byp),backgroundColor:'#b68235',borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{grid,ticks:tick},y:{grid,ticks:tick,beginAtZero:true,precision:0}}}});
+}
+
+/* ═══ PIPELINE (kanban) ═══ */
+async function renderPipeline(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await loadCrm();
+  $('#view').innerHTML=head('Pipeline',`<button class="btn sm" onclick="renderPipeline()">Refresh</button>`)+
+    `<p class="muted small" style="margin:-8px 0 16px">Drag a lead between stages to update it. Value = quote override, else REGES estimate.</p><div class="kan">`+
+    STATUSES.map(s=>{const rows=STATE.inquiries.filter(i=>i.status===s);const val=rows.reduce((a,i)=>a+((i.quote_amount??i.ai_expected)||0),0);
+      return `<div class="kcol" data-stage="${s}" ondragover="kOver(event)" ondragleave="kLeave(event)" ondrop="kDrop(event,'${s}')">
+        <h3><span>${SLABEL[s]}</span><span class="muted">${rows.length} · ${money(val)}</span></h3>
+        ${rows.map(i=>`<div class="kcard" draggable="true" ondragstart="kDrag(event,'${i.id}')" onclick="openLead('${i.id}')">
+          <div class="nm">${esc(i.name)}</div>
+          <div class="mt"><span>${esc((i.practice||'—').split(/[&·]/)[0].trim())}</span><span class="gold">${money(i.quote_amount??i.ai_expected)}</span></div>
+        </div>`).join('')||'<div class="muted tiny" style="padding:8px 4px">—</div>'}
+      </div>`;}).join('')+`</div>`;
+}
+let DRAG=null;
+window.kDrag=(e,id)=>{DRAG=id;e.dataTransfer.effectAllowed='move';};
+window.kOver=e=>{e.preventDefault();e.currentTarget.classList.add('over');};
+window.kLeave=e=>{e.currentTarget.classList.remove('over');};
+window.kDrop=async(e,stage)=>{e.preventDefault();e.currentTarget.classList.remove('over');if(!DRAG)return;const i=STATE.inquiries.find(x=>x.id===DRAG);if(i&&i.status!==stage){await api('update',{id:DRAG,status:stage});if(stage==='won'){await api('convert',{id:DRAG});}toast('Moved to '+SLABEL[stage]);}DRAG=null;renderPipeline();};
+
+/* ═══ LEADS ═══ */
+async function renderLeads(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await loadCrm();
+  const chips=['all',...STATUSES].map(s=>`<button class="chip ${STATE.filter===s?'active':''}" onclick="STATE.filter='${s}';renderLeads()">${s==='all'?'All':SLABEL[s]} · ${s==='all'?STATE.inquiries.length:((STATE.metrics.counts||{})[s]||0)}</button>`).join('');
+  const rows=STATE.inquiries.filter(i=>STATE.filter==='all'||i.status===STATE.filter);
+  $('#view').innerHTML=head('Leads &amp; CRM',`<button class="btn sm" onclick="renderLeads()">Refresh</button>`)+
+    `<div class="flex wrap gap" style="margin-bottom:16px">${chips}</div>
+    <div class="card"><table><thead><tr><th>Client</th><th>Practice</th><th>Estimate</th><th>Stage</th><th>Ref</th><th>Received</th></tr></thead><tbody>
+    ${rows.length?rows.map(i=>`<tr data-row onclick="openLead('${i.id}')"><td><b style="font-weight:500">${esc(i.name)}</b><div class="muted small">${esc(i.company||'—')}</div></td><td class="small">${esc(i.practice||'—')}</td><td>${money(i.quote_amount??i.ai_expected)}</td><td><span class="tag t-${i.status}">${SLABEL[i.status]}</span></td><td class="muted small">${esc(i.ref)}</td><td class="muted small">${new Date(i.created_at).toLocaleDateString()}</td></tr>`).join(''):`<tr><td colspan="6" class="empty">No leads in this view. Website enquiries arrive as “New”.</td></tr>`}
+    </tbody></table></div>`;
+}
+window.openLead=(id)=>{
+  const i=STATE.inquiries.find(x=>x.id===id);if(!i)return;
+  modal(`<div class="flex between center"><div><h2 class="mar" style="margin:0 0 3px">${esc(i.name)}</h2><div class="muted small">${esc(i.company||'—')} · <a class="gold" href="mailto:${esc(i.email)}">${esc(i.email)}</a>${i.phone?' · '+esc(i.phone):''} · ${esc(i.ref)}</div></div><button class="btn sm" onclick="closeModal()">Close</button></div>
+    <div class="flex wrap gap" style="margin:18px 0">${STATUSES.map(s=>`<button class="btn sm ${i.status===s?'gold':''}" onclick="setStatus('${i.id}','${s}')">${SLABEL[s]}</button>`).join('')}<button class="btn sm" style="margin-left:auto" onclick="convertLead('${i.id}')">Convert to customer</button></div>
+    <div class="card" style="padding:16px"><div class="kick gold">REGES estimate · ${esc(i.ai_confidence||'')} confidence</div>
+      <div class="mar" style="font-size:23px;margin:8px 0">${money(i.ai_low)} – ${money(i.ai_high)} <span class="muted small" style="font-family:Montserrat">expected ${money(i.ai_expected)}</span></div>
+      <div class="muted small">${esc(i.ai_rationale||'')}</div>
+      <div class="flex gap center" style="margin-top:12px"><span class="muted small">Quote override</span><input id="q_${i.id}" value="${i.quote_amount??''}" style="max-width:140px" placeholder="—"><button class="btn sm" onclick="saveQuote('${i.id}')">Save</button></div>
+    </div>
+    <div class="card" style="padding:16px;margin-top:12px"><div class="flex between center"><div class="kick">REGES · next best action</div><button class="btn sm gold" id="sg_${i.id}" onclick="suggest('${i.id}')">Ask REGES</button></div><div id="sgout_${i.id}" class="small muted" style="margin-top:10px">REGES drafts your follow-up and recommends the next move.</div></div>
+    <div style="margin-top:16px"><div class="kick" style="margin-bottom:7px">Project brief</div><div class="small" style="white-space:pre-wrap;color:var(--dim)">${esc(i.details||'')}</div></div>
+    <div style="margin-top:16px"><div class="kick" style="margin-bottom:9px">Notes &amp; reminders</div>
+      ${(i.notes||[]).map(n=>`<div class="card" style="padding:9px 11px;margin-bottom:7px"><div class="small">${esc(n.body)}</div><div class="muted tiny" style="margin-top:3px">${new Date(n.created_at).toLocaleString()}${n.remind_at?' · remind '+n.remind_at:''}</div></div>`).join('')||'<div class="muted small">No notes yet.</div>'}
+      <div class="flex gap" style="margin-top:9px"><textarea id="nb_${i.id}" rows="2" placeholder="Add a note…"></textarea><input id="nr_${i.id}" type="date" style="max-width:150px"><button class="btn solid sm" onclick="saveNote('${i.id}')">Add</button></div>
+    </div>`);
+};
+window.setStatus=async(id,s)=>{await api('update',{id,status:s});await loadCrm();openLead(id);refreshActive();};
+window.saveQuote=async(id)=>{const v=$('#q_'+id).value;await api('update',{id,quote_amount:v===''?null:parseInt(v,10)});await loadCrm();toast('Quote saved');refreshActive();};
+window.saveNote=async(id)=>{const b=$('#nb_'+id).value.trim();if(!b)return;await api('note',{id,body:b,remind_at:$('#nr_'+id).value||null});await loadCrm();openLead(id);};
+window.convertLead=async(id)=>{const r=await(await api('convert',{id})).json();if(r.ok){toast('Added to customers');}};
+window.suggest=async(id)=>{const btn=$('#sg_'+id),out=$('#sgout_'+id);btn.disabled=true;btn.textContent='Thinking…';const r=await(await api('suggest',{id})).json();btn.disabled=false;btn.textContent='Regenerate';const s=r.suggestion;out.innerHTML=`<div class="flex gap center" style="margin-bottom:5px"><span class="tag t-${s.priority==='high'?'new':s.priority==='medium'?'reviewing':'lost'}">${s.priority} priority</span><b style="color:var(--silver)">${esc(s.action)}</b>${s.live?'':'<span class="muted">· guided</span>'}</div><div class="muted" style="margin-bottom:9px">${esc(s.why)}</div><div class="card" style="padding:11px"><div class="kick" style="margin-bottom:5px">Suggested follow-up</div><div style="white-space:pre-wrap">${esc(s.draft)}</div><button class="btn sm" style="margin-top:9px" onclick="navigator.clipboard&&navigator.clipboard.writeText(${JSON.stringify(s.draft)});toast('Copied')">Copy draft</button></div>`;};
+function refreshActive(){const v=$('.navlink.active')?.dataset.view;if(v==='leads')renderLeads();else if(v==='pipeline')renderPipeline();}
+
+/* ═══ CUSTOMERS ═══ */
+async function renderCustomers(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await loadColl('customers');
+  const rows=STATE.customers;
+  $('#view').innerHTML=head('Customers',`<button class="btn sm gold" onclick="editCustomer()">New customer</button>`)+
+    `<div class="card"><table><thead><tr><th>Name</th><th>Company</th><th>Practice</th><th>Value</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(c=>`<tr><td data-row onclick="editCustomer('${c.id}')"><b style="font-weight:500">${esc(c.name)}</b><div class="muted small">${esc(c.email||'')}</div></td><td class="small">${esc(c.company||'—')}</td><td class="small">${esc(c.practice||'—')}</td><td>${money(c.value)}</td><td><span class="tag t-${c.status==='active'?'active':'lost'}">${esc(c.status||'active')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editCustomer('${c.id}')">Edit</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">No customers yet. Convert a won lead, or add one manually.</td></tr>`}
+    </tbody></table></div>`;
+}
+window.editCustomer=(id)=>{
+  const c=id?STATE.customers.find(x=>x.id===id):{name:'',email:'',company:'',phone:'',practice:'',value:'',status:'active',notes:''};
+  modal(`<div class="flex between center"><h2 class="mar" style="margin:0">${id?'Edit customer':'New customer'}</h2><button class="btn sm" onclick="closeModal()">Close</button></div>
+    <div class="grid2" style="margin-top:18px">
+      ${fld('cu_name','Name',c.name)}${fld('cu_email','Email',c.email,'email')}
+      ${fld('cu_company','Company',c.company)}${fld('cu_phone','Phone',c.phone)}
+      ${fld('cu_practice','Practice',c.practice)}${fld('cu_value','Account value',c.value,'number')}
+    </div>
+    <div class="field"><label class="kick">Status</label><select id="cu_status">${['active','prospect','paused','churned'].map(s=>`<option ${c.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="field"><label class="kick">Notes</label><textarea id="cu_notes" rows="3">${esc(c.notes||'')}</textarea></div>
+    <div class="flex gap" style="margin-top:8px"><button class="btn solid" onclick="saveCustomer('${id||''}')">${id?'Save changes':'Create customer'}</button>${id?`<button class="btn danger" style="margin-left:auto" onclick="delColl('customers','${id}',renderCustomers)">Delete</button>`:''}</div>`);
+};
+window.saveCustomer=async(id)=>{
+  const data={name:$('#cu_name').value.trim(),email:$('#cu_email').value.trim(),company:$('#cu_company').value.trim(),phone:$('#cu_phone').value.trim(),practice:$('#cu_practice').value.trim(),value:parseInt($('#cu_value').value,10)||0,status:$('#cu_status').value,notes:$('#cu_notes').value.trim()};
+  if(!data.name)return toast('Name required','bad');
+  if(id)await api('coll_update',{coll:'customers',id,data});else await api('coll_create',{coll:'customers',data});
+  closeModal();toast('Saved');renderCustomers();
+};
+
+/* ═══ INVOICES ═══ */
+function invTotal(inv){return (inv.items||[]).reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0);}
+async function renderInvoices(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await Promise.all([loadColl('invoices'),loadColl('customers')]);
+  const rows=STATE.invoices;
+  $('#view').innerHTML=head('Invoices',`<button class="btn sm gold" onclick="editInvoice()">New invoice</button>`)+
+    `<div class="card"><table><thead><tr><th>Number</th><th>Client</th><th>Issued</th><th>Due</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(v=>`<tr><td data-row onclick="editInvoice('${v.id}')"><b style="font-weight:500">${esc(v.number||'—')}</b></td><td class="small">${esc(v.client||'—')}</td><td class="muted small">${esc(v.issued||'—')}</td><td class="muted small">${esc(v.due||'—')}</td><td>${money(invTotal(v))}</td><td><span class="tag t-${v.status||'draft'}">${esc(v.status||'draft')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editInvoice('${v.id}')">Open</button></td></tr>`).join(''):`<tr><td colspan="7" class="empty">No invoices yet. Create one from a customer.</td></tr>`}
+    </tbody></table></div>`;
+}
+window.editInvoice=(id)=>{
+  const inv=id?STATE.invoices.find(x=>x.id===id):null;
+  const inS=STATE.settings?STATE.settings.invoicing:{prefix:'INV',payment_terms_days:14,tax_rate:0,notes:''};
+  const num=inv?inv.number:(inS.prefix||'INV')+'-'+String(Date.now()).slice(-5);
+  const today=new Date().toISOString().slice(0,10);
+  const due=inv?inv.due:new Date(Date.now()+ (inS.payment_terms_days||14)*864e5).toISOString().slice(0,10);
+  const items=inv&&inv.items&&inv.items.length?inv.items:[{desc:'',qty:1,price:0}];
+  const clients=STATE.customers.map(c=>c.name);
+  modal(`<div class="flex between center"><h2 class="mar" style="margin:0">${id?'Invoice '+esc(inv.number):'New invoice'}</h2><button class="btn sm" onclick="closeModal()">Close</button></div>
+    <div class="grid2" style="margin-top:18px">
+      ${fld('iv_number','Number',num)}
+      <div class="field"><label class="kick">Client</label><input id="iv_client" list="iv_clients" value="${esc(inv?inv.client:'')}"><datalist id="iv_clients">${clients.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+      ${fld('iv_issued','Issued',inv?inv.issued:today,'date')}${fld('iv_due','Due',due,'date')}
+    </div>
+    <div class="kick" style="margin:6px 0 8px">Line items</div>
+    <div id="iv_items">${items.map((it,x)=>ivRow(it,x)).join('')}</div>
+    <button class="btn sm" style="margin-top:4px" onclick="ivAdd()">+ Add line</button>
+    <div class="flex between center" style="margin:16px 0 6px"><div class="field" style="flex:1;margin:0"><label class="kick">Status</label><select id="iv_status">${['draft','sent','paid','overdue','cancelled'].map(s=>`<option ${inv&&inv.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div style="text-align:right;margin-left:20px"><div class="kick">Total</div><div class="mar gold" id="iv_total" style="font-size:24px">${money(inv?invTotal(inv):0)}</div></div></div>
+    <div class="field"><label class="kick">Notes</label><textarea id="iv_notes" rows="2">${esc(inv?inv.notes:(inS.notes||''))}</textarea></div>
+    <div class="flex gap" style="margin-top:8px"><button class="btn solid" onclick="saveInvoice('${id||''}')">${id?'Save invoice':'Create invoice'}</button>${id?`<button class="btn danger" style="margin-left:auto" onclick="delColl('invoices','${id}',renderInvoices)">Delete</button>`:''}</div>`);
+  ivRecalc();
+};
+function ivRow(it,x){return `<div class="flex gap" style="margin-bottom:6px" data-ivrow><input placeholder="Description" value="${esc(it.desc||'')}" data-k="desc" oninput="ivRecalc()" style="flex:3"><input type="number" placeholder="Qty" value="${it.qty??1}" data-k="qty" oninput="ivRecalc()" style="flex:1"><input type="number" placeholder="Price" value="${it.price??0}" data-k="price" oninput="ivRecalc()" style="flex:1"><button class="btn sm" onclick="this.parentElement.remove();ivRecalc()">×</button></div>`;}
+window.ivAdd=()=>{$('#iv_items').insertAdjacentHTML('beforeend',ivRow({desc:'',qty:1,price:0}));};
+function ivItems(){return $$('#iv_items [data-ivrow]').map(r=>{const o={};$$('[data-k]',r).forEach(i=>o[i.dataset.k]=i.dataset.k==='desc'?i.value:Number(i.value)||0);return o;});}
+window.ivRecalc=()=>{const t=ivItems().reduce((s,it)=>s+it.qty*it.price,0);const el=$('#iv_total');if(el)el.textContent=money(t);};
+window.saveInvoice=async(id)=>{
+  const data={number:$('#iv_number').value.trim(),client:$('#iv_client').value.trim(),issued:$('#iv_issued').value,due:$('#iv_due').value,status:$('#iv_status').value,notes:$('#iv_notes').value.trim(),items:ivItems()};
+  if(!data.client)return toast('Client required','bad');
+  if(id)await api('coll_update',{coll:'invoices',id,data});else await api('coll_create',{coll:'invoices',data});
+  closeModal();toast('Invoice saved');renderInvoices();
+};
+
+/* ═══ CALENDAR ═══ */
+async function renderCalendar(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await Promise.all([loadColl('events'),loadColl('bookings')]);
+  const d=STATE.calDate,y=d.getFullYear(),mo=d.getMonth();
+  const first=new Date(y,mo,1),start=new Date(first);start.setDate(1-((first.getDay()+6)%7));
+  const monthName=first.toLocaleString(CFG.locale||'en-US',{month:'long',year:'numeric'});
+  const items={};
+  STATE.events.forEach(e=>{if(e.date){(items[e.date]=items[e.date]||[]).push({t:e.title,k:'ev'});}});
+  STATE.bookings.forEach(b=>{if(b.date){(items[b.date]=items[b.date]||[]).push({t:(b.time?b.time+' ':'')+(b.name||'Booking'),k:'bk'});}});
+  const today=new Date().toISOString().slice(0,10);
+  let cells='';for(let i=0;i<42;i++){const cd=new Date(start);cd.setDate(start.getDate()+i);const ds=cd.toISOString().slice(0,10);const other=cd.getMonth()!==mo;
+    cells+=`<div class="cell ${other?'other':''} ${ds===today?'today':''}" onclick="addEvent('${ds}')"><div class="dn">${cd.getDate()}</div>${(items[ds]||[]).slice(0,4).map(x=>`<div class="ev ${x.k}">${esc(x.t)}</div>`).join('')}</div>`;}
+  $('#view').innerHTML=head('Calendar',`<button class="btn sm" onclick="calMove(-1)">‹</button><span class="mar" style="min-width:170px;text-align:center">${monthName}</span><button class="btn sm" onclick="calMove(1)">›</button><button class="btn sm gold" onclick="addEvent()">New event</button>`)+
+    `<div class="cal" style="margin-bottom:6px">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="dow">${d}</div>`).join('')}</div><div class="cal">${cells}</div>
+     <div class="flex gap" style="margin-top:12px"><span class="tiny muted"><span class="ev" style="display:inline-block;padding:1px 8px">Event</span></span><span class="tiny muted"><span class="ev bk" style="display:inline-block;padding:1px 8px">Booking</span></span></div>`;
+}
+window.calMove=n=>{STATE.calDate=new Date(STATE.calDate.getFullYear(),STATE.calDate.getMonth()+n,1);renderCalendar();};
+window.addEvent=(date)=>{
+  modal(`<div class="flex between center"><h2 class="mar" style="margin:0">New event</h2><button class="btn sm" onclick="closeModal()">Close</button></div>
+    <div class="field" style="margin-top:18px"><label class="kick">Title</label><input id="ev_title" placeholder="Client call, review, deadline…"></div>
+    <div class="grid2">${fld('ev_date','Date',date||new Date().toISOString().slice(0,10),'date')}${fld('ev_time','Time','','time')}</div>
+    <div class="field"><label class="kick">Notes</label><textarea id="ev_notes" rows="2"></textarea></div>
+    <button class="btn solid" style="margin-top:6px" onclick="saveEvent()">Add to calendar</button>`);
+};
+window.saveEvent=async()=>{const data={title:$('#ev_title').value.trim(),date:$('#ev_date').value,time:$('#ev_time').value,notes:$('#ev_notes').value.trim()};if(!data.title||!data.date)return toast('Title and date required','bad');await api('coll_create',{coll:'events',data});closeModal();toast('Event added');renderCalendar();};
+
+/* ═══ BOOKINGS ═══ */
+async function renderBookings(){
+  $('#view').innerHTML='<div class="empty">Loading…</div>';await loadColl('bookings');
+  const rows=STATE.bookings;
+  $('#view').innerHTML=head('Bookings',`<button class="btn sm gold" onclick="editBooking()">New booking</button>`)+
+    `<div class="card"><table><thead><tr><th>Client</th><th>Date</th><th>Time</th><th>Topic</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.length?rows.map(b=>`<tr><td data-row onclick="editBooking('${b.id}')"><b style="font-weight:500">${esc(b.name||'—')}</b><div class="muted small">${esc(b.email||'')}</div></td><td class="small">${esc(b.date||'—')}</td><td class="small">${esc(b.time||'—')}</td><td class="small">${esc(b.topic||'Consultation')}</td><td><span class="tag t-${b.status==='confirmed'?'confirmed':b.status==='cancelled'?'cancelled':'sent'}">${esc(b.status||'pending')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editBooking('${b.id}')">Edit</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">No bookings yet.</td></tr>`}
+    </tbody></table></div>`;
+}
+window.editBooking=(id)=>{
+  const b=id?STATE.bookings.find(x=>x.id===id):{name:'',email:'',date:'',time:'',topic:'Consultation',status:'pending',notes:''};
+  modal(`<div class="flex between center"><h2 class="mar" style="margin:0">${id?'Edit booking':'New booking'}</h2><button class="btn sm" onclick="closeModal()">Close</button></div>
+    <div class="grid2" style="margin-top:18px">${fld('bk_name','Client',b.name)}${fld('bk_email','Email',b.email,'email')}${fld('bk_date','Date',b.date,'date')}${fld('bk_time','Time',b.time,'time')}</div>
+    <div class="grid2">${fld('bk_topic','Topic',b.topic)}<div class="field"><label class="kick">Status</label><select id="bk_status">${['pending','confirmed','completed','cancelled'].map(s=>`<option ${b.status===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+    <div class="field"><label class="kick">Notes</label><textarea id="bk_notes" rows="2">${esc(b.notes||'')}</textarea></div>
+    <div class="flex gap" style="margin-top:6px"><button class="btn solid" onclick="saveBooking('${id||''}')">${id?'Save':'Create'}</button>${id?`<button class="btn danger" style="margin-left:auto" onclick="delColl('bookings','${id}',renderBookings)">Delete</button>`:''}</div>`);
+};
+window.saveBooking=async(id)=>{const data={name:$('#bk_name').value.trim(),email:$('#bk_email').value.trim(),date:$('#bk_date').value,time:$('#bk_time').value,topic:$('#bk_topic').value.trim(),status:$('#bk_status').value,notes:$('#bk_notes').value.trim()};if(!data.name)return toast('Client name required','bad');if(id)await api('coll_update',{coll:'bookings',id,data});else await api('coll_create',{coll:'bookings',data});closeModal();toast('Saved');renderBookings();};
+
+window.delColl=async(coll,id,after)=>{if(!confirm('Delete this record? This cannot be undone.'))return;await api('coll_remove',{coll,id});closeModal();toast('Deleted');after&&after();};
+
+/* ═══ ARMORY TOOLS ═══ */
+async function renderTools(){
+  $('#view').innerHTML='<div class="empty">Loading the arsenal…</div>';
+  const d=await j('tools_status');
+  const banner=d.available?'':`<div class="card" style="padding:15px;margin-bottom:16px;border-color:rgba(230,181,102,.35);border-left:3px solid var(--warn)"><b style="color:var(--warn)">Docker host not connected.</b> <span class="muted small">The orchestrator launches these as containers over the Docker Engine socket. Run this app on a VPS with Docker (mount <code>/var/run/docker.sock</code>) and every tool below becomes one-click launchable. On shared hosting the catalogue still serves as your deployable arsenal.</span></div>`;
+  const cats={};(d.tools||[]).forEach(t=>{(cats[t.category]=cats[t.category]||[]).push(t);});
+  $('#view').innerHTML=head(`Armory · Tools <span class="muted" style="font-size:14px;font-family:Montserrat">(${(d.tools||[]).length})</span>`,`<button class="btn sm" onclick="renderTools()">Refresh</button>`)+banner+
+    Object.keys(cats).map(cat=>`<div class="kick" style="margin:20px 0 9px">${esc(cat)} <span class="muted">· ${cats[cat].length}</span></div><div class="grid2">${cats[cat].map(toolCard).join('')}</div>`).join('');
+}
+function toolCard(t){
+  const st={running:['var(--ok)','Running'],stopped:['var(--faint)','Stopped'],not_created:['var(--ghost)','Not deployed'],unknown:['var(--warn)','Catalogue']}[t.state]||['var(--ghost)','—'];
+  return `<div class="card" style="padding:15px"><div class="flex between center"><div><b style="font-weight:500">${esc(t.name)}</b> <span class="muted tiny">replaces ${esc(t.replaces)}</span></div><span class="flex center gap"><span class="dot" style="background:${st[0]}"></span><span class="tiny muted">${st[1]}</span></span></div>
+    ${t.needs&&t.needs.length?`<div class="tiny" style="margin-top:7px"><span class="muted">needs:</span> ${t.needs.join(', ')}</div>`:''}${t.note?`<div class="tiny muted" style="margin-top:5px">${esc(t.note)}</div>`:''}
+    <div class="flex gap wrap" style="margin-top:11px">
+      ${t.state==='running'?`<button class="btn sm" onclick="toolAct('stop','${t.slug}')">Stop</button><button class="btn sm" onclick="toolAct('restart','${t.slug}')">Restart</button>${t.url?`<a class="btn sm gold" href="${t.url}" target="_blank">Open</a>`:''}`:`<button class="btn sm solid" onclick="toolAct('launch','${t.slug}')">Launch</button>`}
+      ${t.state!=='not_created'&&t.state!=='unknown'?`<button class="btn sm" onclick="toolLogs('${t.slug}')">Logs</button><button class="btn sm danger" onclick="toolAct('remove','${t.slug}')">Remove</button>`:''}
+    </div></div>`;
+}
+window.toolAct=async(act,slug)=>{const r=await(await api('tools_'+act,{slug})).json();if(r&&r.message)toast(r.message,r.ok?'':'bad');renderTools();};
+window.toolLogs=async(slug)=>{const r=await(await api('tools_logs',{slug})).json();modal(`<div class="flex between center"><b>${esc(slug)} · logs</b><button class="btn sm" onclick="closeModal()">Close</button></div><pre style="background:#05080f;padding:13px;border-radius:7px;max-height:60vh;overflow:auto;font-size:11px;color:#cdd6e4;white-space:pre-wrap;margin-top:12px">${esc(r.logs||'(no output)')}</pre>`);};
+
+/* ═══ AI · REGES ═══ */
+async function renderAI(){
+  const d=await j('settings_get');STATE.settings=d.settings;const ai=d.settings.ai||{};
+  const providers=[['off','Off — deterministic fallback'],['groq','Groq (free)'],['openrouter','OpenRouter (free tier)'],['gemini','Google Gemini (free)'],['cerebras','Cerebras (free)'],['mistral','Mistral'],['together','Together (free tier)'],['openai','OpenAI'],['anthropic','Anthropic']];
+  $('#view').innerHTML=head('AI · REGES')+
+    `<p class="muted small" style="margin:-8px 0 16px;max-width:640px">REGES powers the on-site concierge, live pricing estimates, and next-best-action drafts. Pick a provider — the free ones (Groq, Gemini, OpenRouter, Cerebras) need no card. Leave off and the system uses a deterministic rate-card fallback.</p>
+    <div class="card" style="padding:24px;max-width:640px">
+      <div class="field"><label class="kick">Provider</label><select id="ai_provider">${providers.map(([v,l])=>`<option value="${v}" ${ai.provider===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label class="kick">API key ${ai.has_key?'<span class="gold">· key on file</span>':''}</label><input id="ai_key" placeholder="${ai.has_key?esc(ai.api_key)+' — leave blank to keep':'paste key'}"></div>
+      <div class="grid2">
+        <div class="field"><label class="kick">Model <span class="muted">optional</span></label><input id="ai_model" value="${esc(ai.model||'')}" placeholder="provider default"></div>
+        <div class="field"><label class="kick">Base URL <span class="muted">self-hosted only</span></label><input id="ai_base" value="${esc(ai.base_url||'')}" placeholder="https://api.groq.com/openai/v1"></div>
+      </div>
+      <div class="setrow"><div class="lbl">On-site concierge<small>The chat orb on the website</small></div><label class="switch"><input type="checkbox" id="ai_concierge" ${ai.concierge_enabled!==false?'checked':''}><span class="sl"></span></label></div>
+      <div class="setrow"><div class="lbl">AI-assisted pricing<small>Blend REGES into estimates</small></div><label class="switch"><input type="checkbox" id="ai_pricing" ${ai.pricing_ai_enabled!==false?'checked':''}><span class="sl"></span></label></div>
+      <button class="btn solid" style="margin-top:16px" onclick="saveAI()">Save AI settings</button>
+      <span id="ai_status" class="small muted" style="margin-left:12px"></span>
+    </div>`;
+}
+window.saveAI=async()=>{
+  const ai={provider:$('#ai_provider').value,model:$('#ai_model').value.trim(),base_url:$('#ai_base').value.trim(),concierge_enabled:$('#ai_concierge').checked,pricing_ai_enabled:$('#ai_pricing').checked};
+  const key=$('#ai_key').value.trim();if(key)ai.api_key=key;
+  const r=await(await api('settings_save',{settings:{ai}})).json();
+  const el=$('#ai_status');el.textContent=r.ai_enabled?('Saved — REGES is ON ('+r.provider+')'):'Saved — REGES is OFF (deterministic fallback)';el.style.color=r.ai_enabled?'var(--ok)':'var(--faint)';
+};
+
+/* ═══ SETTINGS (the big one) ═══ */
+async function renderSettings(){
+  const d=await j('settings_get');const s=STATE.settings=d.settings;
+  const co=s.company,br=s.brand,em=s.email,rt=s.rates,bk=s.booking,iv=s.invoicing,nt=s.notifications,ft=s.features,se=s.security,hrs=s.hours;
+  $('#view').innerHTML=head('Settings',`<button class="btn solid sm" onclick="saveSettings()">Save all changes</button>`)+
+  `<div class="grid2">
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Company</div>
+      ${fld('s_company_name','Company name',co.name)}${fld('s_company_tagline','Tagline',co.tagline)}
+      <div class="grid2">${fld('s_company_email','Contact email',co.email,'email')}${fld('s_company_phone','Phone',co.phone)}</div>
+      ${fld('s_company_address','Address',co.address)}
+      <div class="grid2">${fld('s_company_website','Website',co.website)}${fld('s_company_reply_sla','Reply SLA',co.reply_sla)}</div>
+      <div class="grid2">${fld('s_company_primary_domain','Primary domain',co.primary_domain)}${fld('s_company_secondary_domain','Secondary domain',co.secondary_domain)}</div>
+      ${fld('s_company_linkedin','LinkedIn',co.linkedin)}${fld('s_company_instagram','Instagram',co.instagram)}${fld('s_company_facebook','Facebook',co.facebook)}
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Brand &amp; locale</div>
+      <div class="grid2">${fld('s_brand_accent','Accent',br.accent)}${fld('s_brand_accent2','Accent 2',br.accent2)}</div>
+      <div class="grid2">${fld('s_brand_currency','Currency',br.currency)}${fld('s_brand_currency_symbol','Symbol',br.currency_symbol)}</div>
+      <div class="grid2">${fld('s_brand_locale','Locale',br.locale)}${fld('s_brand_timezone','Timezone',br.timezone)}</div>
+      <div class="kick gold" style="margin:22px 0 12px">Feature toggles</div>
+      ${Object.keys(ft).map(k=>toggleRow('s_features_'+k,fmtKey(k),ft[k])).join('')}
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Email &amp; SMTP</div>
+      <div class="grid2">${fld('s_email_smtp_host','SMTP host',em.smtp_host)}${fld('s_email_smtp_port','Port',em.smtp_port,'number')}</div>
+      <div class="grid2">${fld('s_email_smtp_user','SMTP user',em.smtp_user)}${fld('s_email_team_inbox','Team inbox',em.team_inbox,'email')}</div>
+      <div class="grid2">${fld('s_email_from_name','From name',em.from_name)}${fld('s_email_from_email','From email',em.from_email,'email')}</div>
+      ${toggleRow('s_email_smtp_secure','TLS / secure',em.smtp_secure)}
+      ${toggleRow('s_email_notify_team_on_lead','Notify team on new lead',em.notify_team_on_lead)}
+      ${toggleRow('s_email_auto_reply_visitor','Auto-reply to visitor',em.auto_reply_visitor)}
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Pricing rate-card</div>
+      <div class="tiny muted" style="margin-bottom:10px">Day rate by practice (${br.currency_symbol})</div>
+      ${Object.keys(rt.day_rate).map(k=>fldInline('s_rates_day_rate_'+slug(k),k,rt.day_rate[k],'number')).join('')}
+      <div class="tiny muted" style="margin:14px 0 10px">Range spread</div>
+      ${fld('s_rates_range_spread','± spread (0–1)',rt.range_spread,'number')}
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Booking &amp; scheduling</div>
+      <div class="grid2">${fld('s_booking_slot_minutes','Slot minutes',bk.slot_minutes,'number')}${fld('s_booking_buffer_minutes','Buffer minutes',bk.buffer_minutes,'number')}</div>
+      <div class="grid2">${fld('s_booking_daily_start','Day start',bk.daily_start,'time')}${fld('s_booking_daily_end','Day end',bk.daily_end,'time')}</div>
+      ${fld('s_booking_lead_time_hours','Lead time (hours)',bk.lead_time_hours,'number')}
+      ${toggleRow('s_booking_enabled','Bookings enabled',bk.enabled)}
+      ${toggleRow('s_booking_confirmation_email','Send confirmation email',bk.confirmation_email)}
+      <div class="kick gold" style="margin:22px 0 12px">Business hours</div>
+      ${Object.keys(hrs).map(day=>`<div class="flex gap center" style="margin-bottom:6px"><span style="width:38px;text-transform:capitalize;font-size:12px" class="muted">${day}</span><input type="time" value="${hrs[day].open}" id="s_hours_${day}_open" style="flex:1"><input type="time" value="${hrs[day].close}" id="s_hours_${day}_close" style="flex:1"><label class="flex center gap tiny" style="width:66px">closed<input type="checkbox" id="s_hours_${day}_closed" ${hrs[day].closed?'checked':''}></label></div>`).join('')}
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="kick gold" style="margin-bottom:16px">Invoicing</div>
+      <div class="grid2">${fld('s_invoicing_prefix','Number prefix',iv.prefix)}${fld('s_invoicing_payment_terms_days','Terms (days)',iv.payment_terms_days,'number')}</div>
+      ${fld('s_invoicing_tax_rate','Tax rate (%)',iv.tax_rate,'number')}
+      <div class="field"><label class="kick">Default invoice notes</label><textarea id="s_invoicing_notes" rows="2">${esc(iv.notes||'')}</textarea></div>
+      <div class="kick gold" style="margin:22px 0 12px">Notifications</div>
+      ${Object.keys(nt).map(k=>toggleRow('s_notifications_'+k,fmtKey(k),nt[k])).join('')}
+      <div class="kick gold" style="margin:22px 0 12px">Security</div>
+      ${fld('s_security_session_hours','Session length (hours)',se.session_hours,'number')}
+      ${toggleRow('s_security_require_strong_password','Require strong password',se.require_strong_password)}
+    </div>
+  </div>
+  <div style="height:40px"></div>`;
+}
+function saveSettings(){
+  const g=id=>document.getElementById(id);
+  const val=id=>{const e=g(id);if(!e)return undefined;return e.type==='checkbox'?e.checked:(e.type==='number'?(e.value===''?0:Number(e.value)):e.value);};
+  const s=STATE.settings;
+  const out={company:{},brand:{},email:{},rates:{day_rate:{}},booking:{},invoicing:{},notifications:{},features:{},security:{},hours:{}};
+  ['name','tagline','email','phone','address','website','reply_sla','primary_domain','secondary_domain','linkedin','instagram','facebook'].forEach(k=>out.company[k]=val('s_company_'+k));
+  ['accent','accent2','currency','currency_symbol','locale','timezone'].forEach(k=>out.brand[k]=val('s_brand_'+k));
+  ['smtp_host','smtp_port','smtp_user','team_inbox','from_name','from_email','smtp_secure','notify_team_on_lead','auto_reply_visitor'].forEach(k=>out.email[k]=val('s_email_'+k));
+  Object.keys(s.rates.day_rate).forEach(k=>out.rates.day_rate[k]=val('s_rates_day_rate_'+slug(k)));
+  out.rates.range_spread=val('s_rates_range_spread');
+  ['slot_minutes','buffer_minutes','daily_start','daily_end','lead_time_hours','enabled','confirmation_email'].forEach(k=>out.booking[k]=val('s_booking_'+k));
+  ['prefix','payment_terms_days','tax_rate','notes'].forEach(k=>out.invoicing[k]=val('s_invoicing_'+k));
+  Object.keys(s.notifications).forEach(k=>out.notifications[k]=val('s_notifications_'+k));
+  Object.keys(s.features).forEach(k=>out.features[k]=val('s_features_'+k));
+  ['session_hours','require_strong_password'].forEach(k=>out.security[k]=val('s_security_'+k));
+  Object.keys(s.hours).forEach(day=>out.hours[day]={open:val('s_hours_'+day+'_open'),close:val('s_hours_'+day+'_close'),closed:val('s_hours_'+day+'_closed')});
+  api('settings_save',{settings:out}).then(()=>{CFG.currency_symbol=out.brand.currency_symbol||'$';CFG.locale=out.brand.locale||'en-US';toast('Settings saved');});
+}
+
+/* ═══ small field builders ═══ */
+function fld(id,label,val,type){return `<div class="field"><label class="kick">${label}</label><input id="${id}" type="${type||'text'}" value="${val==null?'':esc(val)}"></div>`;}
+function fldInline(id,label,val,type){return `<div class="flex gap center" style="margin-bottom:7px"><span class="small muted" style="flex:1">${esc(label)}</span><input id="${id}" type="${type||'text'}" value="${val==null?'':esc(val)}" style="max-width:130px"></div>`;}
+function toggleRow(id,label,on){return `<div class="setrow"><div class="lbl">${esc(label)}</div><label class="switch"><input type="checkbox" id="${id}" ${on?'checked':''}><span class="sl"></span></label></div>`;}
+const fmtKey=k=>k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+const slug=k=>String(k).replace(/[^a-z0-9]+/gi,'_');
+
+/* ═══ boot ═══ */
+(async()=>{
+  try{
+    const s=await(await api('session')).json();
+    if(s.authed){
+      try{const d=await j('settings_get');STATE.settings=d.settings;CFG.currency_symbol=d.settings.brand.currency_symbol||'$';CFG.locale=d.settings.brand.locale||'en-US';}catch(e){}
+      showApp();nav('dashboard');
+    }else showLogin();
+  }catch(e){showLogin();}
+})();
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#login').style.display==='flex')doLogin();if(e.key==='Escape')closeModal();});
+</script>
+</body>
+</html>

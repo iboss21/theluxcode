@@ -1,0 +1,16 @@
+{
+  "name": "likeaking-inc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Like a King Inc. — one deployable Node app: the original website design + Node backend (leads, AI pricing, concierge) + full admin panel (dashboard, CRM, AI settings, Armory tool orchestrator).",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.15"
+  }
+}
