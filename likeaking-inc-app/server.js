@@ -125,4 +125,21 @@ app.get(['/admin', '/admin/'], (_req, res) => res.sendFile(path.join(PUBLIC, 'ad
 app.use(express.static(PUBLIC, { extensions: ['html'] }))
 app.get('*', (_req, res) => res.sendFile(path.join(PUBLIC, 'index.html')))
 
-app.listen(PORT, '0.0.0.0', () => console.log(`[likeaking] listening on http://0.0.0.0:${PORT}  ·  admin at /admin`))
+/* ── Data location visibility ──────────────────────────────────────────────
+ * The CRM store (leads, customers, invoices, bookings) is a JSON file under
+ * DATA_DIR. If DATA_DIR is not set it defaults to ./data INSIDE this app dir —
+ * which a redeploy that replaces the app folder can ERASE. On a managed host,
+ * point DATA_DIR at a path OUTSIDE the deploy target so data survives deploys.
+ */
+const RESOLVED_DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, 'data')
+const DATA_IS_INSIDE_APP = RESOLVED_DATA_DIR.startsWith(__dirname)
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[likeaking] listening on http://0.0.0.0:${PORT}  ·  admin at /admin`)
+  console.log(`[likeaking] data store: ${RESOLVED_DATA_DIR}`)
+  if (DATA_IS_INSIDE_APP && process.env.DATA_DIR == null) {
+    console.warn('[likeaking] WARNING: DATA_DIR is unset — CRM data lives inside the app folder and a redeploy that replaces this folder will ERASE it. Set DATA_DIR to a persistent path outside the deploy target.')
+  }
+})

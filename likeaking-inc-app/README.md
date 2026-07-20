@@ -71,8 +71,17 @@ npm start          # http://localhost:3000  ·  admin at /admin  (password: chan
 2. **Framework preset:** `Express` (or `Other`). **Node version:** 20.
    **Entry file:** `server.js`. **Package manager:** `npm`.
 3. **Environment variables:** `SESSION_SECRET` (long random), `CRM_PASSWORD`
-   (your admin password). Optionally set the AI here or later in the panel.
+   (your admin password), and **`DATA_DIR`** — see the persistence warning below.
+   Optionally set the AI here or later in the panel.
 4. Deploy. Your site is at `/`, the admin at `/admin`.
+
+> **Persistence — read this or you will lose your CRM data.** The store
+> (leads, customers, invoices, bookings) is a JSON file under `DATA_DIR`. If you
+> leave it unset it defaults to `./data` **inside the app folder**, and a
+> redeploy that replaces that folder **erases every record**. Set `DATA_DIR` to
+> a path *outside* the deploy target (e.g. `/home/YOURUSER/likeaking-data`) and
+> back up `DATA_DIR/store.json` on a schedule. The server prints its resolved
+> data path at boot and warns loudly when `DATA_DIR` is unset.
 
 > The **Armory tool orchestrator** needs a Docker host — it runs live on a
 > Hostinger **VPS** (mount `/var/run/docker.sock`). On app/shared hosting the
