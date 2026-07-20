@@ -126,8 +126,10 @@
 </head>
 <body>
 
-<!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
-<div id="login" class="overlay" style="display:none">
+<!-- ── LOGIN ── default-visible: the login screen must NEVER depend on a network
+       call to appear. Boot upgrades to the app only if the session probe
+       positively confirms auth; a hung/slow/failed probe just leaves login up. -->
+<div id="login" class="overlay" style="display:flex">
   <div class="card" style="width:min(410px,94vw);padding:34px;text-align:center">
     <div id="loginCrest" style="margin-bottom:16px"></div>
     <div class="mar" style="font-size:21px">Like a King <span class="gold" style="font-size:11px;letter-spacing:.22em">INC.</span></div>
@@ -135,7 +137,8 @@
     <p class="muted small" style="margin:14px 0 18px">Revenue, pipeline, clients &amp; the Armory. Team access only.</p>
     <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
     <div id="pwerr" class="small" style="color:var(--bad);display:none;margin-top:8px">Incorrect password.</div>
-    <button class="btn solid" style="width:100%;margin-top:16px" onclick="doLogin()">Enter console</button>
+    <div id="neterr" class="small" style="color:var(--warn);display:none;margin-top:8px">Couldn't reach the server. Check the app is running, then try again.</div>
+    <button class="btn solid" id="loginBtn" style="width:100%;margin-top:16px" onclick="doLogin()">Enter console</button>
   </div>
 </div>
 
@@ -163,9 +166,12 @@ const STATUSES=['new','reviewing','quoted','won','lost'];
 const SLABEL={new:'New',reviewing:'Reviewing',quoted:'Quoted',won:'Won',lost:'Lost'};
 let STATE={inquiries:[],metrics:null,filter:'all',charts:{},customers:[],invoices:[],bookings:[],events:[],settings:null,calDate:new Date()};
 
-async function api(action,extra={}){
-  const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra})});
-  return r;
+async function api(action,extra={},timeoutMs=15000){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    return await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...extra}),signal:ctrl.signal});
+  } finally { clearTimeout(t); }
 }
 async function j(action,extra){const r=await api(action,extra);if(r.status===401){showLogin();throw new Error('auth');}return r.json();}
 function toast(msg,kind){const t=document.createElement('div');t.className='toast';if(kind==='bad')t.style.borderLeftColor='var(--bad)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
@@ -213,8 +219,20 @@ function wolf(size=34){
 /* ═══ auth ═══ */
 function showLogin(){$('#login').style.display='flex';$('#app').style.display='none';$('#loginCrest').innerHTML=wolf(52);}
 function showApp(){$('#login').style.display='none';$('#app').style.display='flex';buildChrome();}
-async function doLogin(){const r=await(await api('login',{password:$('#pw').value})).json();if(r.ok){showApp();nav('dashboard');}else{$('#pwerr').style.display='block';}}
-async function doLogout(){await api('logout');showLogin();}
+async function doLogin(){
+  const btn=$('#loginBtn'); $('#pwerr').style.display='none'; $('#neterr').style.display='none';
+  btn.disabled=true; btn.textContent='Signing in…';
+  try{
+    const r=await api('login',{password:$('#pw').value},12000);
+    const d=await r.json();
+    if(d.ok){ showApp(); nav('dashboard'); return; }
+    $('#pwerr').style.display='block';
+  }catch(e){
+    // aborted/timeout/network — server unreachable
+    $('#neterr').style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Enter console'; }
+}
+async function doLogout(){try{await api('logout',{},8000);}catch(e){}showLogin();}
 
 /* ═══ chrome / nav ═══ */
 const NAV=[
@@ -586,15 +604,20 @@ function toggleRow(id,label,on){return `<div class="setrow"><div class="lbl">${e
 const fmtKey=k=>k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 const slug=k=>String(k).replace(/[^a-z0-9]+/gi,'_');
 
-/* ═══ boot ═══ */
+/* ═══ boot ═══
+   Login is already visible (default HTML state). We ONLY upgrade to the app if
+   the session probe positively confirms auth. The probe is time-boxed, so a
+   hung or unreachable /api/admin can never leave the screen stuck loading. */
+$('#loginCrest').innerHTML = wolf(52); // paint the crest immediately, no wait
 (async()=>{
+  let authed=false;
   try{
-    const s=await(await api('session')).json();
-    if(s.authed){
-      try{const d=await j('settings_get');STATE.settings=d.settings;CFG.currency_symbol=d.settings.brand.currency_symbol||'$';CFG.locale=d.settings.brand.locale||'en-US';}catch(e){}
-      showApp();nav('dashboard');
-    }else showLogin();
-  }catch(e){showLogin();}
+    const r=await api('session',{},7000);
+    if(r.ok){ const s=await r.json(); authed=!!s.authed; }
+  }catch(e){ /* timeout / offline → stay on login (already shown) */ }
+  if(!authed) return; // login stays up
+  try{const d=await j('settings_get');STATE.settings=d.settings;CFG.currency_symbol=d.settings.brand.currency_symbol||'$';CFG.locale=d.settings.brand.locale||'en-US';}catch(e){}
+  showApp();nav('dashboard');
 })();
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#login').style.display==='flex')doLogin();if(e.key==='Escape')closeModal();});
 </script>
