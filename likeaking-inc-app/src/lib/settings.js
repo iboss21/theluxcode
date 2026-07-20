@@ -102,6 +102,13 @@ const DEFAULTS = {
     session_hours: 12,
     require_strong_password: true,
   },
+  // External self-hosted tools (VPS). When a URL is set, the admin opens the
+  // REAL product for that function instead of the built-in module.
+  integrations: {
+    invoicing_url: process.env.INVOICING_URL || '',   // e.g. https://invoices.likeakinginc.com (Invoice Ninja)
+    booking_url: process.env.BOOKING_URL || '',        // e.g. https://book.likeakinginc.com (Cal.com)
+    crm_url: process.env.CRM_URL || '',                // e.g. https://crm.likeakinginc.com (EspoCRM / Twenty)
+  },
 }
 
 function ensure() { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }) }

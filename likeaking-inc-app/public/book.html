@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a consultation — Like a King Inc.</title>
+<meta name="description" content="Book a consultation with Like a King Inc. — AI engineering, digital platforms, cybersecurity and cloud services.">
+<link rel="icon" type="image/webp" href="/images/lion-crest.webp">
+<link rel="stylesheet" href="/vendor/fonts.css">
+<style>
+  :root{--ink:#080d18;--ink2:#0b1120;--line:rgba(205,214,228,.12);--line2:rgba(205,214,228,.2);--silver:#eef1f6;--dim:#aab6cc;--faint:#8b95ab;--gold:#b68235;--gold2:#e1ad66;--ok:#7fd1a3;--bad:#d98a8a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--ink);color:var(--silver);font-family:"Montserrat",system-ui,sans-serif;font-weight:300;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(1000px 620px at 80% -10%,rgba(31,52,92,.30),transparent 60%),radial-gradient(700px 500px at 0% 110%,rgba(182,130,53,.07),transparent 65%)}
+  .wrap{position:relative;z-index:1;max-width:940px;margin:0 auto;padding:40px 26px 80px}
+  a{color:inherit;text-decoration:none}
+  .mar{font-family:"Marcellus",serif;font-weight:400}
+  .kick{font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold2);font-weight:400}
+  .top{display:flex;align-items:center;gap:14px;margin-bottom:44px}
+  .top img{width:46px;height:46px;object-fit:contain}
+  .top .nm{font-family:"Marcellus",serif;font-size:19px}
+  .top .nm small{font-family:"Montserrat";font-size:10px;letter-spacing:.24em;color:var(--gold2);display:block;margin-top:2px}
+  .top .back{margin-left:auto;font-size:12px;color:var(--faint)}
+  .top .back:hover{color:var(--silver)}
+  h1{font-family:"Marcellus",serif;font-weight:400;font-size:clamp(30px,5vw,46px);line-height:1.08;margin:8px 0 14px}
+  h1 em{font-style:italic;color:var(--dim)}
+  .lead{color:var(--dim);max-width:44ch;line-height:1.75;font-size:15px}
+  .grid{display:grid;grid-template-columns:1.05fr 1.25fr;gap:40px;margin-top:44px;align-items:start}
+  .aside .kick{margin-bottom:18px}
+  .point{padding:16px 0;border-top:1px solid var(--line)}
+  .point b{font-family:"Marcellus",serif;font-weight:400;font-size:15px;color:var(--silver);display:block;margin-bottom:4px}
+  .point span{font-size:13px;color:var(--faint);line-height:1.6}
+  .card{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:12px;padding:30px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .field{margin-bottom:18px}
+  label{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  label .req{color:var(--gold2)}
+  input,select,textarea{width:100%;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:6px;color:var(--silver);padding:12px 13px;font-family:inherit;font-size:14px;font-weight:300;outline:none;transition:.15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold);background:rgba(0,0,0,.32)}
+  select option{background:var(--ink2)}
+  textarea{resize:vertical;min-height:92px}
+  .hp{position:absolute;left:-9999px}
+  .btn{width:100%;margin-top:8px;background:var(--silver);color:var(--ink);border:none;border-radius:6px;padding:15px;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:.18s}
+  .btn:hover{background:#fff}
+  .btn:disabled{opacity:.55;cursor:default}
+  .msg{margin-top:16px;font-size:13.5px;line-height:1.6;display:none}
+  .msg.ok{display:block;color:var(--ok)}
+  .msg.bad{display:block;color:var(--bad)}
+  .fine{margin-top:14px;font-size:11px;color:var(--faint);line-height:1.6}
+  @media(max-width:760px){.grid{grid-template-columns:1fr;gap:30px}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/images/lion-crest.webp" alt="Like a King Inc.">
+    <div class="nm">Like a King<small>Inc.</small></div>
+    <a class="back" href="/">← Back to site</a>
+  </div>
+
+  <div class="grid">
+    <div class="aside">
+      <div class="kick">Consultation</div>
+      <h1>Book time <em>with the team.</em></h1>
+      <p class="lead">Pick a day and a slot. We'll confirm by email and come prepared to talk through your objectives, current systems, and what success looks like.</p>
+      <div style="margin-top:34px">
+        <div class="point"><b>30–45 minutes</b><span>A focused working session, not a sales pitch.</span></div>
+        <div class="point"><b>The right people</b><span>Matched to your need across AI, platforms, security or cloud.</span></div>
+        <div class="point"><b>Confidential</b><span>No obligation. Enterprise NDAs on request.</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="bookForm" autocomplete="on">
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="row">
+          <div class="field"><label>Full name <span class="req">*</span></label><input id="name" name="name" placeholder="Jane Doe" required></div>
+          <div class="field"><label>Work email <span class="req">*</span></label><input id="email" name="email" type="email" placeholder="jane@company.com" required></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Company</label><input id="company" name="company" placeholder="Company name"></div>
+          <div class="field"><label>Topic</label>
+            <select id="topic" name="topic">
+              <option>Consultation</option>
+              <option>Intelligent Systems &amp; AI Engineering</option>
+              <option>Digital Platforms &amp; Product Engineering</option>
+              <option>Cybersecurity &amp; Risk Management</option>
+              <option>Cloud Infrastructure &amp; Managed Services</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Preferred date <span class="req">*</span></label><input id="date" name="date" type="date" required></div>
+          <div class="field"><label>Preferred time</label><select id="time" name="time"></select></div>
+        </div>
+        <div class="field"><label>Anything we should prepare?</label><textarea id="details" name="details" placeholder="Objectives, current systems, timeline…"></textarea></div>
+        <button class="btn" id="submit" type="submit">Request this booking →</button>
+        <div class="msg" id="msg"></div>
+        <p class="fine">Submitting sends a booking request to our team. We'll confirm the exact time by email, usually within one business day.</p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // sensible defaults: earliest bookable date = tomorrow; 30-min slots 09:00–17:00
+  const dEl=document.getElementById('date'), tEl=document.getElementById('time');
+  const tmr=new Date(Date.now()+864e5); dEl.min=tmr.toISOString().slice(0,10); dEl.value=dEl.min;
+  for(let h=9;h<17;h++){ for(const m of ['00','30']){ const v=String(h).padStart(2,'0')+':'+m; const o=document.createElement('option'); o.value=v; o.textContent=v; tEl.appendChild(o);} }
+  tEl.value='10:00';
+
+  const form=document.getElementById('bookForm'), btn=document.getElementById('submit'), msg=document.getElementById('msg');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    msg.className='msg'; btn.disabled=true; btn.textContent='Sending…';
+    const body={ name:name.value.trim(), email:email.value.trim(), company:company.value.trim(),
+      topic:topic.value, date:date.value, time:time.value, details:details.value.trim(), website:form.website.value };
+    try{
+      const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),15000);
+      const r=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal});
+      clearTimeout(to);
+      const d=await r.json().catch(()=>({}));
+      if(r.ok && d.success){
+        form.reset(); msg.textContent='Thank you — your booking request has been sent. We’ll confirm the time by email shortly.'; msg.className='msg ok';
+      }else{
+        msg.textContent=(d && d.message) || 'Sorry, that didn’t go through. Please email us and we’ll sort it out.'; msg.className='msg bad';
+      }
+    }catch(err){
+      msg.textContent='Couldn’t reach the server. Please try again, or email us directly.'; msg.className='msg bad';
+    }finally{ btn.disabled=false; btn.textContent='Request this booking →'; }
+  });
+</script>
+</body>
+</html>

@@ -85,6 +85,31 @@ async function handleAiChat(req, res) {
 }
 app.post(['/backend/ai_chat.php', '/api/ai'], handleAiChat)
 
+/* ── Public: consultation booking → lands in admin “Bookings” ───────────────
+ * A visitor picks a date/time on /book; this saves it to the bookings collection
+ * so it shows up in the admin Bookings tab. Same fail-loud contract as leads. */
+async function handleBooking(req, res) {
+  try {
+    const b = req.body || {}
+    if (clean(b.website) !== '') return res.json({ success: true }) // honeypot
+    const bk = {
+      name: clean(b.name), email: clean(b.email), company: clean(b.company),
+      date: clean(b.date), time: clean(b.time), topic: clean(b.topic) || 'Consultation',
+      details: clean(b.details), status: 'pending', channel: 'website',
+    }
+    if (!bk.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bk.email) || !bk.date)
+      return res.status(422).json({ success: false, message: 'Name, a valid email, and a date are required.' })
+    const saved = store.create('bookings', bk)
+    console.log(`[likeaking] booking saved: ${saved.name} · ${saved.date} ${saved.time} <${saved.email}>`)
+    try { await email.notify({ ref: 'BOOKING', name: saved.name, email: saved.email, company: saved.company, practice: saved.topic, details: `Booking request: ${saved.date} ${saved.time}\n${saved.details || ''}` }, { low: 0, expected: 0, high: 0, confidence: '', rationale: '', breakdown: [] }) } catch { /* best-effort */ }
+    res.json({ success: true, id: saved.id })
+  } catch (e) {
+    console.error('[likeaking] BOOKING SAVE FAILED:', e && e.message, '— check DATA_DIR is writable:', RESOLVED_DATA_DIR)
+    res.status(500).json({ success: false, message: 'Server could not save your booking. Please email us directly.' })
+  }
+}
+app.post(['/backend/book.php', '/api/book'], handleBooking)
+
 /* ── CRM API — their crm.html (backend/api.php) AND the admin panel ────────── */
 async function crmApi(req, res) {
   try { return await crmApiInner(req, res) }

@@ -204,7 +204,10 @@ function markInner(size){
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border:1.5px solid var(--gold);border-radius:${r}px;font-family:'Marcellus',serif;font-size:${fs}px;color:var(--gold2);line-height:1;letter-spacing:.01em">LK</span>`;
 }
 function wolf(size=34){
-  return `<span style="display:inline-flex;flex:none">${markInner(size)}<img src="/images/wolf-crest.webp" alt="Like a King Inc." width="${size}" height="${size}" style="display:none;object-fit:contain" onload="this.previousElementSibling.style.display='none';this.style.display='block'" onerror="this.onerror=null;this.src='/images/wolf-crest.png';this.addEventListener('error',()=>this.remove(),{once:true})"></span>`;
+  // Prefer a custom wolf logo if you add one; otherwise use the REAL brand lion
+  // crest (ships with the app); the "LK" monogram is only a last resort.
+  const srcs=['/images/wolf-crest.webp','/images/wolf-crest.png','/images/lion-crest.webp'];
+  return `<span style="display:inline-flex;flex:none">${markInner(size)}<img alt="Like a King Inc." width="${size}" height="${size}" data-i="0" style="display:none;object-fit:contain" onload="this.previousElementSibling.style.display='none';this.style.display='block'" onerror="var s=${JSON.stringify(srcs).replace(/"/g,'&quot;')};var n=(+this.dataset.i)+1;this.dataset.i=n;if(n<s.length){this.src=s[n]}else{this.remove()}" src="${srcs[0]}"></span>`;
 }
 
 /* ═══ auth ═══ */
@@ -242,6 +245,19 @@ function setBadge(v,n){const b=$('#badge-'+v);if(!b)return;if(n){b.textContent=n
 const VIEWS={dashboard:renderDashboard,pipeline:renderPipeline,leads:renderLeads,customers:renderCustomers,invoices:renderInvoices,calendar:renderCalendar,bookings:renderBookings,tools:renderTools,ai:renderAI,settings:renderSettings};
 function nav(view){$$('.navlink[data-view]').forEach(n=>n.classList.toggle('active',n.dataset.view===view));(VIEWS[view]||renderDashboard)();}
 const head=(title,right='')=>`<div class="topbar"><h1>${title}</h1><div class="flex gap center">${right}</div></div>`;
+/* External self-hosted tool (VPS). When configured in Settings → Integrations,
+   the view leads with the REAL product (embedded + open button); the built-in
+   module stays below as reference/fallback. */
+function extUrl(kind){return (STATE.settings&&STATE.settings.integrations&&STATE.settings.integrations[kind])||'';}
+function extPanel(url,name){
+  return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px">
+    <div class="flex between center" style="padding:14px 16px;border-bottom:1px solid var(--line)">
+      <div><span class="tag t-active">Live tool</span> <b style="font-weight:500;margin-left:6px">${esc(name)}</b> <span class="muted small">· the real product, self-hosted on your VPS</span></div>
+      <a class="btn sm gold" href="${esc(url)}" target="_blank" rel="noopener">Open ${esc(name)} ↗</a>
+    </div>
+    <iframe src="${esc(url)}" style="width:100%;height:640px;border:0;background:#fff" loading="lazy" title="${esc(name)}"></iframe>
+  </div>`;
+}
 
 /* ═══ data ═══ */
 async function loadCrm(){const [l,m]=await Promise.all([j('list'),j('metrics')]);STATE.inquiries=l.inquiries||[];STATE.metrics=m;
@@ -341,7 +357,9 @@ function refreshActive(){const v=$('.navlink.active')?.dataset.view;if(v==='lead
 async function renderCustomers(){
   $('#view').innerHTML='<div class="empty">Loading…</div>';await loadColl('customers');
   const rows=STATE.customers;
+  const xc=extUrl('crm_url');
   $('#view').innerHTML=head('Customers',`<button class="btn sm gold" onclick="editCustomer()">New customer</button>`)+
+    (xc?extPanel(xc,'CRM')+`<div class="kick" style="margin:22px 0 9px">Built-in customer list</div>`:'')+
     `<div class="card"><table><thead><tr><th>Name</th><th>Company</th><th>Practice</th><th>Value</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.length?rows.map(c=>`<tr><td data-row onclick="editCustomer('${c.id}')"><b style="font-weight:500">${esc(c.name)}</b><div class="muted small">${esc(c.email||'')}</div></td><td class="small">${esc(c.company||'—')}</td><td class="small">${esc(c.practice||'—')}</td><td>${money(c.value)}</td><td><span class="tag t-${c.status==='active'?'active':'lost'}">${esc(c.status||'active')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editCustomer('${c.id}')">Edit</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">No customers yet. Convert a won lead, or add one manually.</td></tr>`}
     </tbody></table></div>`;
@@ -370,7 +388,9 @@ function invTotal(inv){return (inv.items||[]).reduce((s,it)=>s+(Number(it.qty)||
 async function renderInvoices(){
   $('#view').innerHTML='<div class="empty">Loading…</div>';await Promise.all([loadColl('invoices'),loadColl('customers')]);
   const rows=STATE.invoices;
+  const xi=extUrl('invoicing_url');
   $('#view').innerHTML=head('Invoices',`<button class="btn sm gold" onclick="editInvoice()">New invoice</button>`)+
+    (xi?extPanel(xi,'Invoice Ninja')+`<div class="kick" style="margin:22px 0 9px">Built-in quick invoices</div>`:'')+
     `<div class="card"><table><thead><tr><th>Number</th><th>Client</th><th>Issued</th><th>Due</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.length?rows.map(v=>`<tr><td data-row onclick="editInvoice('${v.id}')"><b style="font-weight:500">${esc(v.number||'—')}</b></td><td class="small">${esc(v.client||'—')}</td><td class="muted small">${esc(v.issued||'—')}</td><td class="muted small">${esc(v.due||'—')}</td><td>${money(invTotal(v))}</td><td><span class="tag t-${v.status||'draft'}">${esc(v.status||'draft')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editInvoice('${v.id}')">Open</button></td></tr>`).join(''):`<tr><td colspan="7" class="empty">No invoices yet. Create one from a customer.</td></tr>`}
     </tbody></table></div>`;
@@ -438,7 +458,9 @@ window.saveEvent=async()=>{const data={title:$('#ev_title').value.trim(),date:$(
 async function renderBookings(){
   $('#view').innerHTML='<div class="empty">Loading…</div>';await loadColl('bookings');
   const rows=STATE.bookings;
-  $('#view').innerHTML=head('Bookings',`<button class="btn sm gold" onclick="editBooking()">New booking</button>`)+
+  const xb=extUrl('booking_url');
+  $('#view').innerHTML=head('Bookings',`<a class="btn sm" href="/book" target="_blank">Public booking page ↗</a><button class="btn sm gold" onclick="editBooking()">New booking</button>`)+
+    (xb?extPanel(xb,'Cal.com')+`<div class="kick" style="margin:22px 0 9px">Bookings from your website</div>`:'')+
     `<div class="card"><table><thead><tr><th>Client</th><th>Date</th><th>Time</th><th>Topic</th><th>Status</th><th></th></tr></thead><tbody>
     ${rows.length?rows.map(b=>`<tr><td data-row onclick="editBooking('${b.id}')"><b style="font-weight:500">${esc(b.name||'—')}</b><div class="muted small">${esc(b.email||'')}</div></td><td class="small">${esc(b.date||'—')}</td><td class="small">${esc(b.time||'—')}</td><td class="small">${esc(b.topic||'Consultation')}</td><td><span class="tag t-${b.status==='confirmed'?'confirmed':b.status==='cancelled'?'cancelled':'sent'}">${esc(b.status||'pending')}</span></td><td style="text-align:right"><button class="btn sm" onclick="editBooking('${b.id}')">Edit</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">No bookings yet.</td></tr>`}
     </tbody></table></div>`;
@@ -505,7 +527,7 @@ window.saveAI=async()=>{
 /* ═══ SETTINGS (the big one) ═══ */
 async function renderSettings(){
   const d=await j('settings_get');const s=STATE.settings=d.settings;
-  const co=s.company,br=s.brand,em=s.email,rt=s.rates,bk=s.booking,iv=s.invoicing,nt=s.notifications,ft=s.features,se=s.security,hrs=s.hours;
+  const co=s.company,br=s.brand,em=s.email,rt=s.rates,bk=s.booking,iv=s.invoicing,nt=s.notifications,ft=s.features,se=s.security,hrs=s.hours,ig=s.integrations||{};
   $('#view').innerHTML=head('Settings',`<button class="btn solid sm" onclick="saveSettings()">Save all changes</button>`)+
   `<div class="grid2">
     <div class="card" style="padding:22px">
@@ -567,13 +589,23 @@ async function renderSettings(){
       ${toggleRow('s_security_require_strong_password','Require strong password',se.require_strong_password)}
     </div>
   </div>
+  <div class="card" style="padding:22px;margin-top:16px">
+    <div class="kick gold" style="margin-bottom:6px">Integrations · real self-hosted tools (VPS)</div>
+    <p class="muted small" style="margin-bottom:16px;max-width:70ch">Running the real products on your VPS (Invoice Ninja, Cal.com, a CRM) via the included <code>docker-compose.prod.yml</code>? Paste their URLs here and the admin opens the real tool inside Invoices / Bookings / Customers. Leave blank to use the built-in modules.</p>
+    <div class="grid3">
+      ${fld('s_integrations_invoicing_url','Invoicing URL (Invoice Ninja)',ig.invoicing_url)}
+      ${fld('s_integrations_booking_url','Booking URL (Cal.com)',ig.booking_url)}
+      ${fld('s_integrations_crm_url','CRM URL (EspoCRM / Twenty)',ig.crm_url)}
+    </div>
+  </div>
   <div style="height:40px"></div>`;
 }
 function saveSettings(){
   const g=id=>document.getElementById(id);
   const val=id=>{const e=g(id);if(!e)return undefined;return e.type==='checkbox'?e.checked:(e.type==='number'?(e.value===''?0:Number(e.value)):e.value);};
   const s=STATE.settings;
-  const out={company:{},brand:{},email:{},rates:{day_rate:{}},booking:{},invoicing:{},notifications:{},features:{},security:{},hours:{}};
+  const out={company:{},brand:{},email:{},rates:{day_rate:{}},booking:{},invoicing:{},notifications:{},features:{},security:{},hours:{},integrations:{}};
+  ['invoicing_url','booking_url','crm_url'].forEach(k=>out.integrations[k]=val('s_integrations_'+k));
   ['name','tagline','email','phone','address','website','reply_sla','primary_domain','secondary_domain','linkedin','instagram','facebook'].forEach(k=>out.company[k]=val('s_company_'+k));
   ['accent','accent2','currency','currency_symbol','locale','timezone'].forEach(k=>out.brand[k]=val('s_brand_'+k));
   ['smtp_host','smtp_port','smtp_user','team_inbox','from_name','from_email','smtp_secure','notify_team_on_lead','auto_reply_visitor'].forEach(k=>out.email[k]=val('s_email_'+k));
