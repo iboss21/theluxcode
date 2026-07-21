@@ -72,6 +72,24 @@
   .tile .kick{margin-bottom:8px}
   .tile h2{margin:0;font-size:28px;font-family:"Marcellus",serif;font-weight:400}
   .tile .sub{font-size:11px;color:var(--faint);margin-top:5px}
+  /* dashboard cockpit */
+  .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .statgrid .tile h2{font-size:25px}
+  .delta{font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px;letter-spacing:.02em}
+  .delta.up{color:var(--ok);background:rgba(127,209,163,.12)}
+  .delta.down{color:var(--bad);background:rgba(217,138,138,.12)}
+  .dash2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+  .dash2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .dash3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .feed{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  .feed:last-child{border-bottom:none}
+  .feed:hover{padding-left:4px}
+  .fdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .logo-drop{border:1px dashed var(--line2);border-radius:8px;padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:.15s}
+  .logo-drop:hover{border-color:var(--gold)}
+  .logo-drop img{width:56px;height:56px;object-fit:contain;border-radius:6px;background:rgba(0,0,0,.25)}
+  @media(max-width:1100px){.dash3{grid-template-columns:1fr}.dash2{grid-template-columns:1fr}.statgrid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:860px){.dash2b{grid-template-columns:1fr}.statgrid{grid-template-columns:1fr}}
   table{width:100%;border-collapse:collapse}
   th{text-align:left;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ghost);padding:11px 13px;border-bottom:1px solid var(--line);font-weight:400}
   td{padding:12px 13px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
@@ -206,7 +224,8 @@ function markInner(size){
 function wolf(size=34){
   // Prefer a custom wolf logo if you add one; otherwise use the REAL brand lion
   // crest (ships with the app); the "LK" monogram is only a last resort.
-  const srcs=['/images/wolf-crest.webp','/images/wolf-crest.png','/images/lion-crest.webp'];
+  const up=(STATE.settings&&STATE.settings.company&&STATE.settings.company.logo_url)||'';
+  const srcs=[up,'/images/wolf-crest.webp','/images/wolf-crest.png','/images/lion-crest.webp'].filter(Boolean);
   return `<span style="display:inline-flex;flex:none">${markInner(size)}<img alt="Like a King Inc." width="${size}" height="${size}" data-i="0" style="display:none;object-fit:contain" onload="this.previousElementSibling.style.display='none';this.style.display='block'" onerror="var s=${JSON.stringify(srcs).replace(/"/g,'&quot;')};var n=(+this.dataset.i)+1;this.dataset.i=n;if(n<s.length){this.src=s[n]}else{this.remove()}" src="${srcs[0]}"></span>`;
 }
 
@@ -264,40 +283,116 @@ async function loadCrm(){const [l,m]=await Promise.all([j('list'),j('metrics')])
   const nw=(STATE.metrics.counts||{}).new||0;setBadge('leads',nw||'');setBadge('pipeline',(STATE.metrics.pipeline_value?'':''));}
 async function loadColl(c){const r=await j('coll_list',{coll:c});STATE[c]=r.items||[];return STATE[c];}
 
-/* ═══ DASHBOARD ═══ */
+/* ═══ DASHBOARD — executive operations cockpit ═══ */
 async function renderDashboard(){
-  $('#view').innerHTML='<div class="empty">Loading…</div>';
-  await loadCrm();const m=STATE.metrics;const rem=(await j('reminders')).reminders||[];
-  $('#view').innerHTML=head('Dashboard',`<span class="kick">REGES · live operations</span>`)+`
-    <div class="grid4" style="margin-bottom:16px">
-      ${tile('Pipeline value',money(m.pipeline_value),'var(--gold2)','open opportunities')}
-      ${tile('Won value',money(m.won_value),'var(--ok)','closed / signed')}
-      ${tile('Conversion',(m.conversion||0)+'%','var(--info)','won ÷ decided')}
-      ${tile('Total leads',m.total||0,'var(--silver)',(m.counts&&m.counts.new||0)+' new')}
+  $('#view').innerHTML='<div class="empty">Loading operations…</div>';
+  await Promise.all([loadCrm(),loadColl('customers'),loadColl('invoices'),loadColl('bookings'),loadColl('events')]);
+  const m=STATE.metrics,inq=STATE.inquiries,cust=STATE.customers,invs=STATE.invoices,bks=STATE.bookings;
+  let rem=[]; try{rem=(await j('reminders')).reminders||[];}catch(e){}
+  const now=new Date(),todayISO=now.toISOString().slice(0,10);
+  const val=i=>(i.quote_amount!=null?i.quote_amount:i.ai_expected)||0;
+
+  // last-6-months series
+  const months=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:d.toISOString().slice(0,7),label:d.toLocaleString(CFG.locale||'en-US',{month:'short'})});}
+  const wonByM={},leadsByM={};
+  inq.forEach(i=>{const mo=(i.created_at||'').slice(0,7);leadsByM[mo]=(leadsByM[mo]||0)+1;if(i.status==='won')wonByM[mo]=(wonByM[mo]||0)+val(i);});
+  const thisMo=months[5].key,lastMo=months[4].key;
+  const leadsDelta=pct(leadsByM[thisMo]||0,leadsByM[lastMo]||0);
+  const wonDelta=pct(wonByM[thisMo]||0,wonByM[lastMo]||0);
+
+  // funnel
+  const funnel=STATUSES.map(s=>({s,label:SLABEL[s],n:(m.counts||{})[s]||0,v:(m.value||{})[s]||0}));
+  const maxN=Math.max(1,...funnel.map(f=>f.n));
+  const funnelColor={new:'#e1ad66',reviewing:'#9fb4d8',quoted:'#cdd6e4',won:'#7fd1a3',lost:'#5b6478'};
+
+  // invoices
+  const invT=v=>(v.items||[]).reduce((s,it)=>s+(+it.qty||0)*(+it.price||0),0);
+  const invAgg={draft:0,sent:0,paid:0,overdue:0,cancelled:0};
+  invs.forEach(v=>{invAgg[v.status||'draft']=(invAgg[v.status||'draft']||0)+invT(v);});
+
+  const upcoming=bks.filter(b=>b.date&&b.date>=todayISO).sort((a,b)=>a.date<b.date?-1:1).slice(0,5);
+  const recent=inq.slice(0,6);
+  const top=[...cust].sort((a,b)=>(b.value||0)-(a.value||0)).slice(0,5);
+  const avgDeal=inq.filter(i=>i.status==='won').length?Math.round(m.won_value/inq.filter(i=>i.status==='won').length):0;
+
+  $('#view').innerHTML=head('Dashboard',`<span class="kick">${now.toLocaleDateString(CFG.locale||'en-US',{weekday:'long',day:'numeric',month:'long'})} · REGES live</span>`)+`
+    <div class="statgrid">
+      ${stat('Pipeline value',money(m.pipeline_value),'var(--gold2)','open opportunities')}
+      ${stat('Won value',money(m.won_value),'var(--ok)','signed to date',wonDelta)}
+      ${stat('Avg. deal size',money(avgDeal),'var(--silver)','per won engagement')}
+      ${stat('Conversion',(m.conversion||0)+'%','var(--info)','won ÷ decided')}
+      ${stat('New leads',(m.counts&&m.counts.new||0),'var(--gold2)','awaiting first touch',leadsDelta)}
+      ${stat('Customers',cust.length,'var(--silver)','active accounts')}
+      ${stat('Outstanding',money(m.invoice_outstanding),'var(--warn)','invoiced, unpaid')}
+      ${stat('Collected',money(m.invoice_paid),'var(--ok)','invoices paid')}
     </div>
-    <div class="grid3" style="margin-bottom:16px">
-      ${tile('Customers',m.customers||0,'var(--silver)','active accounts')}
-      ${tile('Invoiced outstanding',money(m.invoice_outstanding),'var(--warn)','awaiting payment')}
-      ${tile('Invoiced paid',money(m.invoice_paid),'var(--ok)','collected')}
+
+    <div class="dash2" style="margin-top:18px">
+      <div class="card" style="padding:22px">
+        <div class="flex between center" style="margin-bottom:6px"><div class="kick">Revenue &amp; demand · last 6 months</div><div class="tiny muted">won value · new leads</div></div>
+        <canvas id="cRev" height="118"></canvas>
+      </div>
+      <div class="card" style="padding:22px">
+        <div class="kick" style="margin-bottom:16px">Sales funnel</div>
+        ${funnel.map(f=>`<div style="margin-bottom:13px"><div class="flex between" style="font-size:12px;margin-bottom:5px"><span>${f.label}</span><span class="muted">${f.n} · ${money(f.v)}</span></div><div style="height:8px;background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden"><div style="height:100%;width:${Math.round(f.n/maxN*100)}%;background:${funnelColor[f.s]};border-radius:5px"></div></div></div>`).join('')}
+      </div>
     </div>
-    <div class="grid2">
-      <div class="card" style="padding:20px"><div class="kick" style="margin-bottom:14px">Pipeline by stage</div><canvas id="cStatus" height="210"></canvas></div>
-      <div class="card" style="padding:20px"><div class="kick" style="margin-bottom:14px">Leads by practice</div><canvas id="cPractice" height="210"></canvas></div>
+
+    <div class="dash3" style="margin-top:16px">
+      <div class="card" style="padding:22px">
+        <div class="flex between center" style="margin-bottom:14px"><div class="kick">Recent leads</div><button class="btn sm" onclick="nav('leads')">All leads</button></div>
+        ${recent.length?recent.map(i=>`<div class="feed" onclick="nav('leads')"><div class="fdot" style="background:${funnelColor[i.status]||'var(--faint)'}"></div><div style="flex:1;min-width:0"><div class="flex between"><b style="font-weight:500;font-size:13px">${esc(i.name)}</b><span class="tiny gold">${money(val(i))}</span></div><div class="muted tiny" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(i.practice||'—')} · ${esc(SLABEL[i.status]||'')}</div></div></div>`).join(''):'<div class="muted small">No leads yet.</div>'}
+      </div>
+      <div class="card" style="padding:22px">
+        <div class="flex between center" style="margin-bottom:14px"><div class="kick">Upcoming bookings</div><button class="btn sm" onclick="nav('bookings')">All</button></div>
+        ${upcoming.length?upcoming.map(b=>`<div class="feed" onclick="nav('bookings')"><div style="text-align:center;width:38px;flex:none"><div class="mar" style="font-size:16px;line-height:1">${new Date(b.date).getDate()}</div><div class="tiny muted" style="text-transform:uppercase">${new Date(b.date).toLocaleString(CFG.locale||'en-US',{month:'short'})}</div></div><div style="flex:1;min-width:0"><b style="font-weight:500;font-size:13px">${esc(b.name)}</b><div class="muted tiny">${esc(b.time||'')} · ${esc(b.topic||'Consultation')}</div></div><span class="tag t-${b.status==='confirmed'?'confirmed':'sent'}" style="align-self:center">${esc(b.status||'pending')}</span></div>`).join(''):'<div class="muted small">No upcoming bookings. Share your <a class="gold" href="/book" target="_blank">booking page</a>.</div>'}
+      </div>
+      <div class="card" style="padding:22px">
+        <div class="kick" style="margin-bottom:16px">Invoices</div>
+        <canvas id="cInv" height="150"></canvas>
+        <div style="margin-top:14px">
+          <div class="flex between small" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="muted">Outstanding</span><b style="color:var(--warn)">${money(invAgg.sent+invAgg.overdue+invAgg.draft)}</b></div>
+          <div class="flex between small" style="padding:6px 0"><span class="muted">Paid</span><b style="color:var(--ok)">${money(invAgg.paid)}</b></div>
+        </div>
+      </div>
     </div>
+
+    <div class="dash2b" style="margin-top:16px">
+      <div class="card" style="padding:22px">
+        <div class="flex between center" style="margin-bottom:14px"><div class="kick">Top customers by value</div><button class="btn sm" onclick="nav('customers')">All customers</button></div>
+        ${top.length?`<table><tbody>${top.map((c,x)=>`<tr data-row onclick="nav('customers')"><td style="width:26px;color:var(--faint)">${x+1}</td><td><b style="font-weight:500">${esc(c.name)}</b><div class="muted tiny">${esc(c.company||'—')}</div></td><td style="text-align:right"><b class="gold">${money(c.value)}</b></td></tr>`).join('')}</tbody></table>`:'<div class="muted small">No customers yet. Convert a won lead.</div>'}
+      </div>
+      <div class="card" style="padding:22px">
+        <div class="flex between center" style="margin-bottom:14px"><div class="kick">Practice mix</div><span class="tiny muted">by lead count</span></div>
+        <canvas id="cPractice" height="150"></canvas>
+      </div>
+    </div>
+
     <div class="card" style="padding:20px;margin-top:16px">
       <div class="kick" style="margin-bottom:12px">Reminders due (${rem.length})</div>
       ${rem.length?rem.map(r=>`<div class="flex between small" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(r.name)} · <span class="muted">${esc(r.ref)}</span></span><span class="muted">${esc(r.body).slice(0,64)} · ${r.remind_at}</span></div>`).join(''):'<div class="muted small">Nothing due. Add a dated note to a lead to schedule a follow-up.</div>'}
     </div>`;
-  drawCharts();
+  drawDashCharts(months,wonByM,leadsByM,invAgg);
+}
+function pct(a,b){if(!b)return a>0?{up:true,txt:'new'}:null;const d=Math.round((a-b)/b*100);return {up:d>=0,txt:(d>=0?'+':'')+d+'%'};}
+function stat(label,value,color,sub,delta){
+  const d=delta?`<span class="delta ${delta.up?'up':'down'}">${delta.up?'▲':'▼'} ${esc(delta.txt)}</span>`:'';
+  return `<div class="card tile"><div class="flex between center"><div class="kick">${label}</div>${d}</div><h2 style="color:${color||'var(--silver)'}">${value}</h2>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
+function drawDashCharts(months,wonByM,leadsByM,invAgg){
+  Object.values(STATE.charts).forEach(c=>{try{c.destroy()}catch(e){}});
+  const grid={color:'rgba(205,214,228,.06)'},tick={color:'#8b95ab',font:{size:10}};
+  const g=$('#cRev').getContext('2d');const grad=g.createLinearGradient(0,0,0,160);grad.addColorStop(0,'rgba(182,130,53,.55)');grad.addColorStop(1,'rgba(182,130,53,.05)');
+  STATE.charts.rev=new Chart($('#cRev'),{data:{labels:months.map(m=>m.label),datasets:[
+    {type:'bar',label:'Won value',data:months.map(m=>wonByM[m.key]||0),backgroundColor:grad,borderRadius:5,yAxisID:'y',order:2},
+    {type:'line',label:'New leads',data:months.map(m=>leadsByM[m.key]||0),borderColor:'#9fb4d8',backgroundColor:'#9fb4d8',tension:.35,pointRadius:3,yAxisID:'y1',order:1}
+  ]},options:{plugins:{legend:{display:false}},interaction:{intersect:false,mode:'index'},scales:{x:{grid,ticks:tick},y:{grid,ticks:{...tick,callback:v=>CFG.currency_symbol+(v>=1000?(v/1000)+'k':v)}},y1:{position:'right',grid:{display:false},ticks:{...tick,precision:0}}}}});
+  const iv=[invAgg.paid,invAgg.sent,invAgg.overdue,invAgg.draft];
+  STATE.charts.inv=new Chart($('#cInv'),{type:'doughnut',data:{labels:['Paid','Sent','Overdue','Draft'],datasets:[{data:iv,backgroundColor:['#7fd1a3','#9fb4d8','#d98a8a','#5b6478'],borderColor:'#0b1120',borderWidth:2}]},options:{cutout:'64%',plugins:{legend:{position:'bottom',labels:{color:'#aab6cc',font:{size:10},boxWidth:9,padding:8}}}}});
+  const byp={};STATE.inquiries.forEach(i=>{const k=(i.practice||'—').split(/[&·]/)[0].trim().split(' ').slice(0,2).join(' ')||'—';byp[k]=(byp[k]||0)+1;});
+  STATE.charts.p=new Chart($('#cPractice'),{type:'doughnut',data:{labels:Object.keys(byp),datasets:[{data:Object.values(byp),backgroundColor:['#b68235','#9fb4d8','#7fd1a3','#cdd6e4','#e1ad66','#5b6478'],borderColor:'#0b1120',borderWidth:2}]},options:{cutout:'58%',plugins:{legend:{position:'bottom',labels:{color:'#aab6cc',font:{size:10},boxWidth:9,padding:8}}}}});
 }
 function tile(label,val,color,sub){return `<div class="card tile"><div class="kick">${label}</div><h2 style="color:${color||'var(--silver)'}">${val}</h2>${sub?`<div class="sub">${sub}</div>`:''}</div>`;}
-function drawCharts(){
-  const m=STATE.metrics;Object.values(STATE.charts).forEach(c=>{try{c.destroy()}catch(e){}});
-  const grid={color:'rgba(205,214,228,.07)'},tick={color:'#8b95ab',font:{size:11}};
-  STATE.charts.s=new Chart($('#cStatus'),{type:'doughnut',data:{labels:STATUSES.map(s=>SLABEL[s]),datasets:[{data:STATUSES.map(s=>(m.counts||{})[s]||0),backgroundColor:['#b68235','#9fb4d8','#cdd6e4','#7fd1a3','#5b6478'],borderColor:'#0b1120',borderWidth:2}]},options:{cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#aab6cc',font:{size:11},boxWidth:10}}}}});
-  const byp={};STATE.inquiries.forEach(i=>{const k=(i.practice||'—').split(/[&·]/)[0].trim().split(' ').slice(0,2).join(' ')||'—';byp[k]=(byp[k]||0)+1;});
-  STATE.charts.p=new Chart($('#cPractice'),{type:'bar',data:{labels:Object.keys(byp),datasets:[{data:Object.values(byp),backgroundColor:'#b68235',borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{grid,ticks:tick},y:{grid,ticks:tick,beginAtZero:true,precision:0}}}});
-}
 
 /* ═══ PIPELINE (kanban) ═══ */
 async function renderPipeline(){
@@ -532,7 +627,17 @@ async function renderSettings(){
   `<div class="grid2">
     <div class="card" style="padding:22px">
       <div class="kick gold" style="margin-bottom:16px">Company</div>
+      <div class="field">
+        <label class="kick">Company logo <span class="muted">· shown on invoices &amp; the admin</span></label>
+        <div class="logo-drop" onclick="document.getElementById('logoFile').click()">
+          <img id="logoPrev" src="${co.logo_url?esc(co.logo_url):'/images/lion-crest.webp'}" alt="logo">
+          <div style="flex:1"><div class="small" id="logoLbl">${co.logo_url?'Custom logo set':'Click to upload your logo'}</div><div class="tiny muted">PNG · JPG · WEBP · SVG · max 6 MB</div></div>
+          <button class="btn sm danger" id="logoRm" style="${co.logo_url?'':'display:none'}" onclick="event.stopPropagation();removeLogo()">Remove</button>
+        </div>
+        <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="uploadLogo(this)">
+      </div>
       ${fld('s_company_name','Company name',co.name)}${fld('s_company_tagline','Tagline',co.tagline)}
+      <div class="grid2">${fld('s_company_registration','Registration no.',co.registration)}${fld('s_company_vat_id','VAT / Tax ID',co.vat_id)}</div>
       <div class="grid2">${fld('s_company_email','Contact email',co.email,'email')}${fld('s_company_phone','Phone',co.phone)}</div>
       ${fld('s_company_address','Address',co.address)}
       <div class="grid2">${fld('s_company_website','Website',co.website)}${fld('s_company_reply_sla','Reply SLA',co.reply_sla)}</div>
@@ -606,7 +711,7 @@ function saveSettings(){
   const s=STATE.settings;
   const out={company:{},brand:{},email:{},rates:{day_rate:{}},booking:{},invoicing:{},notifications:{},features:{},security:{},hours:{},integrations:{}};
   ['invoicing_url','booking_url','crm_url'].forEach(k=>out.integrations[k]=val('s_integrations_'+k));
-  ['name','tagline','email','phone','address','website','reply_sla','primary_domain','secondary_domain','linkedin','instagram','facebook'].forEach(k=>out.company[k]=val('s_company_'+k));
+  ['name','tagline','email','phone','address','website','reply_sla','primary_domain','secondary_domain','linkedin','instagram','facebook','registration','vat_id'].forEach(k=>out.company[k]=val('s_company_'+k));
   ['accent','accent2','currency','currency_symbol','locale','timezone'].forEach(k=>out.brand[k]=val('s_brand_'+k));
   ['smtp_host','smtp_port','smtp_user','team_inbox','from_name','from_email','smtp_secure','notify_team_on_lead','auto_reply_visitor'].forEach(k=>out.email[k]=val('s_email_'+k));
   Object.keys(s.rates.day_rate).forEach(k=>out.rates.day_rate[k]=val('s_rates_day_rate_'+slug(k)));
@@ -619,6 +724,28 @@ function saveSettings(){
   Object.keys(s.hours).forEach(day=>out.hours[day]={open:val('s_hours_'+day+'_open'),close:val('s_hours_'+day+'_close'),closed:val('s_hours_'+day+'_closed')});
   api('settings_save',{settings:out}).then(()=>{CFG.currency_symbol=out.brand.currency_symbol||'$';CFG.locale=out.brand.locale||'en-US';toast('Settings saved');});
 }
+
+/* ═══ logo upload ═══ */
+window.uploadLogo=(input)=>{
+  const f=input.files&&input.files[0];if(!f)return;
+  if(f.size>6*1024*1024)return toast('Image too large (max 6 MB)','bad');
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    const r=await(await api('logo_upload',{data:rd.result})).json();
+    if(r.ok){
+      $('#logoPrev').src=r.logo_url;$('#logoLbl').textContent='Custom logo set';$('#logoRm').style.display='';
+      if(STATE.settings)STATE.settings.company.logo_url=r.logo_url;
+      brandRefresh();toast('Logo updated');
+    }else toast(r.message||'Upload failed','bad');
+  };
+  rd.readAsDataURL(f);
+};
+window.removeLogo=async()=>{
+  await api('logo_remove');
+  $('#logoPrev').src='/images/lion-crest.webp';$('#logoLbl').textContent='Click to upload your logo';$('#logoRm').style.display='none';
+  if(STATE.settings)STATE.settings.company.logo_url='';brandRefresh();toast('Logo removed');
+};
+function brandRefresh(){const el=$('#brand');if(el)el.innerHTML=`${wolf(34)}<div><div class="bt">Like a King</div><div class="bs">Inc. · Operations</div></div>`;}
 
 /* ═══ small field builders ═══ */
 function fld(id,label,val,type){return `<div class="field"><label class="kick">${label}</label><input id="${id}" type="${type||'text'}" value="${val==null?'':esc(val)}"></div>`;}

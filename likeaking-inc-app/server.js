@@ -23,8 +23,17 @@ const app = express()
 const PORT = parseInt(process.env.PORT || '3000', 10)
 const PUBLIC = path.join(__dirname, 'public')
 
-app.use(express.json({ limit: '1mb' }))
-app.use(express.urlencoded({ extended: true }))
+// Data dir (persistent store + uploaded logos). Resolved up here so the uploads
+// route below and the boot writability check share one definition.
+const RESOLVED_DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data')
+const DATA_IS_INSIDE_APP = RESOLVED_DATA_DIR.startsWith(__dirname)
+const UPLOAD_DIR = path.join(RESOLVED_DATA_DIR, 'uploads')
+
+app.use(express.json({ limit: '8mb' }))   // room for base64 logo uploads
+app.use(express.urlencoded({ extended: true, limit: '8mb' }))
+
+// Serve uploaded assets (company/invoice logo, etc.)
+app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1h' }))
 
 const clean = (v) => String(v == null ? '' : v).trim()
 const COLLS = ['customers', 'invoices', 'bookings', 'events']
@@ -156,6 +165,30 @@ async function crmApiInner(req, res) {
       const saved = settings.save(patch)
       return res.json({ ok: true, settings: settings.publicAll(), ai_enabled: brain.enabled(), provider: saved.ai.provider })
     }
+    // Logo upload (data URL → file under DATA_DIR/uploads, path saved in settings)
+    case 'logo_upload': {
+      const m = /^data:image\/(png|jpe?g|webp|svg\+xml);base64,([A-Za-z0-9+/=]+)$/.exec(clean(b.data))
+      if (!m) return res.status(422).json({ ok: false, message: 'Send a PNG, JPG, WEBP or SVG image.' })
+      const ext = m[1] === 'jpeg' ? 'jpg' : m[1] === 'svg+xml' ? 'svg' : m[1]
+      const buf = Buffer.from(m[2], 'base64')
+      if (buf.length > 6 * 1024 * 1024) return res.status(422).json({ ok: false, message: 'Image too large (max 6 MB).' })
+      try {
+        if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+        for (const e of ['png', 'jpg', 'webp', 'svg']) { const p = path.join(UPLOAD_DIR, 'logo.' + e); if (fs.existsSync(p)) fs.unlinkSync(p) }
+        fs.writeFileSync(path.join(UPLOAD_DIR, 'logo.' + ext), buf)
+        const url = '/uploads/logo.' + ext + '?v=' + Date.now()
+        settings.save({ company: { logo_url: url } })
+        return res.json({ ok: true, logo_url: url })
+      } catch (e) {
+        console.error('[likeaking] logo upload failed:', e && e.message)
+        return res.status(500).json({ ok: false, message: 'Could not save the logo (is DATA_DIR writable?).' })
+      }
+    }
+    case 'logo_remove': {
+      try { for (const e of ['png', 'jpg', 'webp', 'svg']) { const p = path.join(UPLOAD_DIR, 'logo.' + e); if (fs.existsSync(p)) fs.unlinkSync(p) } } catch { /* ignore */ }
+      settings.save({ company: { logo_url: '' } })
+      return res.json({ ok: true })
+    }
     // Armory tools
     case 'tools_status': { const av = await tools.available(); return res.json({ available: av, tools: av ? await tools.statusAll() : tools.REGISTRY.map((t) => ({ slug: t.slug, name: t.name, category: t.category, replaces: t.replaces, image: t.image, port: t.port, needs: t.needs || [], note: t.note || '', state: 'unknown', url: null })) }) }
     case 'tools_launch': return res.json(await tools.launch(clean(b.slug), b.env || {}))
@@ -177,17 +210,12 @@ app.use(express.static(PUBLIC, { extensions: ['html'] }))
 app.get('*', (_req, res) => res.sendFile(path.join(PUBLIC, 'index.html')))
 
 /* ── Data location visibility ──────────────────────────────────────────────
- * The CRM store (leads, customers, invoices, bookings) is a JSON file under
- * DATA_DIR. If DATA_DIR is not set it defaults to ./data INSIDE this app dir —
- * which a redeploy that replaces the app folder can ERASE. On a managed host,
- * point DATA_DIR at a path OUTSIDE the deploy target so data survives deploys.
- */
-const RESOLVED_DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(__dirname, 'data')
-const DATA_IS_INSIDE_APP = RESOLVED_DATA_DIR.startsWith(__dirname)
-
-/* Boot-time writability self-check: proves the store can actually persist a lead
+ * RESOLVED_DATA_DIR / DATA_IS_INSIDE_APP are defined near the top (shared with
+ * the /uploads route). The CRM store + uploaded logos live under DATA_DIR; if
+ * unset it defaults to ./data inside the app, which a redeploy can ERASE — set
+ * DATA_DIR to a persistent path outside the deploy target.
+ *
+ * Boot-time writability self-check: proves the store can actually persist a lead
  * on THIS host. If it can't (read-only mount, bad DATA_DIR, permissions), the log
  * says so in plain words — no more silent lead loss. */
 function checkDataWritable() {

@@ -19,6 +19,9 @@ const DEFAULTS = {
     primary_domain: 'likeakinginc.com',
     secondary_domain: 'likeaking.pro',
     reply_sla: 'one business day',
+    logo_url: '',  // uploaded logo (used on invoices + admin branding); set via admin
+    registration: '',
+    vat_id: '',
     linkedin: 'https://www.linkedin.com/company/likeakinginc/',
     instagram: 'https://www.instagram.com/likeakinginc/',
     facebook: 'https://www.facebook.com/likeakinginc/',

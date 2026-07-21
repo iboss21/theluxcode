@@ -110,12 +110,15 @@
   tEl.value='10:00';
 
   const form=document.getElementById('bookForm'), btn=document.getElementById('submit'), msg=document.getElementById('msg');
+  const val=n=>{const el=form.elements[n];return el?String(el.value||'').trim():'';};
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     msg.className='msg'; btn.disabled=true; btn.textContent='Sending…';
-    const body={ name:name.value.trim(), email:email.value.trim(), company:company.value.trim(),
-      topic:topic.value, date:date.value, time:time.value, details:details.value.trim(), website:form.website.value };
     try{
+      // Read every field by name via the form (never bare globals like `name`,
+      // which collide with window.* and would throw).
+      const body={ name:val('name'), email:val('email'), company:val('company'),
+        topic:val('topic'), date:val('date'), time:val('time'), details:val('details'), website:val('website') };
       const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),15000);
       const r=await fetch('/api/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal});
       clearTimeout(to);
@@ -126,7 +129,7 @@
         msg.textContent=(d && d.message) || 'Sorry, that didn’t go through. Please email us and we’ll sort it out.'; msg.className='msg bad';
       }
     }catch(err){
-      msg.textContent='Couldn’t reach the server. Please try again, or email us directly.'; msg.className='msg bad';
+      msg.textContent=(err && err.name==='AbortError') ? 'That took too long — please try again.' : 'Couldn’t reach the server. Please try again, or email us directly.'; msg.className='msg bad';
     }finally{ btn.disabled=false; btn.textContent='Request this booking →'; }
   });
 </script>
