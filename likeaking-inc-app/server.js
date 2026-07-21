@@ -232,10 +232,22 @@ function checkDataWritable() {
   }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[likeaking] listening on http://0.0.0.0:${PORT}  ·  admin at /admin`)
-  checkDataWritable()
-  if (DATA_IS_INSIDE_APP && process.env.DATA_DIR == null) {
-    console.warn('[likeaking] WARNING: DATA_DIR is unset — CRM data lives inside the app folder and a redeploy that replaces this folder will ERASE it. Set DATA_DIR to a persistent path outside the deploy target.')
-  }
-})
+// Initialise the persistence backend (Supabase when configured, else file),
+// THEN start listening so the first request already has data loaded.
+;(async () => {
+  let backend = 'file'
+  try { backend = await store.init(); await settings.init() } catch (e) { console.error('[likeaking] store init error:', e && e.message) }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[likeaking] listening on http://0.0.0.0:${PORT}  ·  admin at /admin`)
+    if (backend === 'supabase') {
+      const c = require('./src/lib/supabase').cfg()
+      console.log(`[likeaking] database: Supabase (bucket "${c.bucket}") — managed & persistent ✓`)
+    } else {
+      checkDataWritable()
+      if (DATA_IS_INSIDE_APP && process.env.DATA_DIR == null) {
+        console.warn('[likeaking] WARNING: DATA_DIR is unset and Supabase is not configured — CRM data lives inside the app folder and a redeploy can ERASE it. Set SUPABASE_URL + SUPABASE_KEY for managed persistence, or DATA_DIR to a persistent path.')
+      }
+    }
+  })
+})()

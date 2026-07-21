@@ -5,31 +5,53 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const supa = require('./supabase')
 
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, '..', '..', 'data')
 const FILE = path.join(DATA_DIR, 'store.json')
 
 const EMPTY = { inquiries: [], customers: [], invoices: [], bookings: [], events: [] }
 
-function ensure() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
-  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, JSON.stringify(EMPTY, null, 2))
-}
-function read() {
-  ensure()
-  try {
-    const db = JSON.parse(fs.readFileSync(FILE, 'utf-8'))
-    for (const k in EMPTY) if (!Array.isArray(db[k])) db[k] = []
-    return db
-  } catch {
-    return JSON.parse(JSON.stringify(EMPTY))
+/* ── Backend: Supabase (managed) when configured, else the local file ──────────
+ * The public read()/write() stay synchronous (the whole store API depends on
+ * that), backed by an in-memory cache. init() loads the cache once at boot;
+ * write() updates the cache, always mirrors to the local file for durability,
+ * and (on Supabase) debounce-pushes the state to Storage. */
+let CACHE = null
+let BACKEND = 'file'
+let saveTimer = null
+
+function normalize(db) { db = db || {}; for (const k in EMPTY) if (!Array.isArray(db[k])) db[k] = []; return db }
+function fileLoad() { try { if (fs.existsSync(FILE)) return normalize(JSON.parse(fs.readFileSync(FILE, 'utf-8'))) } catch { /* fall through */ } return null }
+function fileWrite(db) { try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); const tmp = FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(db, null, 2)); fs.renameSync(tmp, FILE) } catch (e) { /* best-effort */ } }
+
+async function init() {
+  if (supa.enabled()) {
+    try {
+      await supa.ensureBucket()
+      const remote = await supa.loadJSON('store.json')
+      CACHE = normalize(remote || fileLoad() || {})
+      await supa.saveJSON('store.json', CACHE) // ensure the object exists
+      BACKEND = 'supabase'
+      return 'supabase'
+    } catch (e) {
+      console.error('[store] Supabase init failed, using local file:', e && e.message)
+    }
   }
+  BACKEND = 'file'
+  CACHE = fileLoad() || JSON.parse(JSON.stringify(EMPTY))
+  return 'file'
 }
+function backend() { return BACKEND }
+
+function read() { if (!CACHE) CACHE = fileLoad() || JSON.parse(JSON.stringify(EMPTY)); return CACHE }
 function write(db) {
-  ensure()
-  const tmp = FILE + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(db, null, 2))
-  fs.renameSync(tmp, FILE)
+  CACHE = db
+  fileWrite(db) // durable within the session regardless of backend
+  if (BACKEND === 'supabase') {
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => { supa.saveJSON('store.json', CACHE).catch((e) => console.error('[store] Supabase save failed:', e && e.message)) }, 400)
+  }
 }
 const id = () => crypto.randomBytes(9).toString('hex')
 const now = () => new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -128,6 +150,7 @@ function reminders() {
 }
 
 module.exports = {
+  init, backend,
   newRef,
   createInquiry, listInquiries, getInquiry, updateInquiry, addNote, convertToCustomer,
   list, create, update, remove,

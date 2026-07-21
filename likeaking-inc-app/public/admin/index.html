@@ -576,7 +576,9 @@ window.delColl=async(coll,id,after)=>{if(!confirm('Delete this record? This cann
 async function renderTools(){
   $('#view').innerHTML='<div class="empty">Loading the arsenal…</div>';
   const d=await j('tools_status');
-  const banner=d.available?'':`<div class="card" style="padding:15px;margin-bottom:16px;border-color:rgba(230,181,102,.35);border-left:3px solid var(--warn)"><b style="color:var(--warn)">Docker host not connected.</b> <span class="muted small">The orchestrator launches these as containers over the Docker Engine socket. Run this app on a VPS with Docker (mount <code>/var/run/docker.sock</code>) and every tool below becomes one-click launchable. On shared hosting the catalogue still serves as your deployable arsenal.</span></div>`;
+  STATE.toolsCache=d.tools||[];
+  const running=(d.tools||[]).filter(t=>t.state==='running').length;
+  const banner=d.available?(running?`<div class="card" style="padding:13px 15px;margin-bottom:16px;border-left:3px solid var(--ok)"><b style="color:var(--ok)">Docker connected · ${running} tool${running>1?'s':''} running.</b> <span class="muted small">Click “Open here” to use a tool inside this console.</span></div>`:`<div class="card" style="padding:13px 15px;margin-bottom:16px;border-left:3px solid var(--ok)"><b style="color:var(--ok)">Docker connected.</b> <span class="muted small">Click Launch on any tool — its database is provisioned automatically, then it opens inside the console.</span></div>`):`<div class="card" style="padding:15px;margin-bottom:16px;border-color:rgba(230,181,102,.35);border-left:3px solid var(--warn)"><b style="color:var(--warn)">Docker host not connected.</b> <span class="muted small">The orchestrator launches these as containers over the Docker Engine socket. Run this app on a VPS with Docker (mount <code>/var/run/docker.sock</code>) and every tool below becomes one-click launchable, with its database provisioned for you.</span></div>`;
   const cats={};(d.tools||[]).forEach(t=>{(cats[t.category]=cats[t.category]||[]).push(t);});
   $('#view').innerHTML=head(`Armory · Tools <span class="muted" style="font-size:14px;font-family:Montserrat">(${(d.tools||[]).length})</span>`,`<button class="btn sm" onclick="renderTools()">Refresh</button>`)+banner+
     Object.keys(cats).map(cat=>`<div class="kick" style="margin:20px 0 9px">${esc(cat)} <span class="muted">· ${cats[cat].length}</span></div><div class="grid2">${cats[cat].map(toolCard).join('')}</div>`).join('');
@@ -586,11 +588,37 @@ function toolCard(t){
   return `<div class="card" style="padding:15px"><div class="flex between center"><div><b style="font-weight:500">${esc(t.name)}</b> <span class="muted tiny">replaces ${esc(t.replaces)}</span></div><span class="flex center gap"><span class="dot" style="background:${st[0]}"></span><span class="tiny muted">${st[1]}</span></span></div>
     ${t.needs&&t.needs.length?`<div class="tiny" style="margin-top:7px"><span class="muted">needs:</span> ${t.needs.join(', ')}</div>`:''}${t.note?`<div class="tiny muted" style="margin-top:5px">${esc(t.note)}</div>`:''}
     <div class="flex gap wrap" style="margin-top:11px">
-      ${t.state==='running'?`<button class="btn sm" onclick="toolAct('stop','${t.slug}')">Stop</button><button class="btn sm" onclick="toolAct('restart','${t.slug}')">Restart</button>${t.url?`<a class="btn sm gold" href="${t.url}" target="_blank">Open</a>`:''}`:`<button class="btn sm solid" onclick="toolAct('launch','${t.slug}')">Launch</button>`}
+      ${t.state==='running'?`<button class="btn sm gold" onclick="toolEmbed('${t.slug}','${esc(t.name)}')">Open here</button>${t.url?`<a class="btn sm" href="${t.url}" target="_blank" rel="noopener">↗</a>`:''}<button class="btn sm" onclick="toolAct('stop','${t.slug}')">Stop</button><button class="btn sm" onclick="toolAct('restart','${t.slug}')">Restart</button>`:`<button class="btn sm solid" onclick="toolAct('launch','${t.slug}',this)">Launch</button>`}
       ${t.state!=='not_created'&&t.state!=='unknown'?`<button class="btn sm" onclick="toolLogs('${t.slug}')">Logs</button><button class="btn sm danger" onclick="toolAct('remove','${t.slug}')">Remove</button>`:''}
     </div></div>`;
 }
-window.toolAct=async(act,slug)=>{const r=await(await api('tools_'+act,{slug})).json();if(r&&r.message)toast(r.message,r.ok?'':'bad');renderTools();};
+// Launch pulls images + provisions a database — can take a minute; long timeout,
+// clear progress, and never freeze the button.
+window.toolAct=async(act,slug,btn)=>{
+  const timeout = act==='launch' ? 300000 : 60000;
+  if(btn){btn.disabled=true;btn.textContent='Launching…';}
+  if(act==='launch')toast('Launching '+slug+' — pulling images & starting its database. This can take a minute…');
+  try{
+    const r=await(await api('tools_'+act,{slug},timeout)).json();
+    if(r&&r.message)toast(r.message,r.ok?'':'bad');
+    if(act==='launch'&&r&&r.ok&&r.url){ setTimeout(()=>toolEmbed(slug,slug),1500); }
+  }catch(e){ toast(act==='launch'?'Launch is still working in the background — refresh in a moment.':'Action failed','bad'); }
+  renderTools();
+};
+// Open a running tool INSIDE the admin (full-screen embed).
+window.toolEmbed=(slug,name)=>{
+  const t=(STATE.toolsCache||[]).find(x=>x.slug===slug);
+  const u=t&&t.url?t.url:('/');
+  const box=document.createElement('div');box.className='overlay';box.style.padding='0';box.style.background='rgba(4,7,14,.92)';
+  box.innerHTML=`<div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div class="flex between center" style="padding:12px 18px;border-bottom:1px solid var(--line);background:var(--ink2)">
+      <div class="flex center gap"><span class="dot" style="background:var(--ok)"></span><b style="font-weight:500">${esc(name)}</b><span class="tiny muted">running inside your console</span></div>
+      <div class="flex gap"><a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener">Open in new tab ↗</a><button class="btn sm" onclick="this.closest('.overlay').remove()">Close</button></div>
+    </div>
+    <iframe src="${esc(u)}" style="flex:1;width:100%;border:0;background:#fff"></iframe>
+  </div>`;
+  document.body.appendChild(box);
+};
 window.toolLogs=async(slug)=>{const r=await(await api('tools_logs',{slug})).json();modal(`<div class="flex between center"><b>${esc(slug)} · logs</b><button class="btn sm" onclick="closeModal()">Close</button></div><pre style="background:#05080f;padding:13px;border-radius:7px;max-height:60vh;overflow:auto;font-size:11px;color:#cdd6e4;white-space:pre-wrap;margin-top:12px">${esc(r.logs||'(no output)')}</pre>`);};
 
 /* ═══ AI · REGES ═══ */

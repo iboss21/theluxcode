@@ -176,6 +176,67 @@ const containerName = (slug) => 'laki_tool_' + slug
 const hostPort = (spec) => 20000 + (spec.port % 10000)
 const getTool = (slug) => REGISTRY.find((t) => t.slug === slug)
 
+/* ── Dependency provisioning ────────────────────────────────────────────────
+ * Tools that `need` a database don't run without one. The launcher brings up a
+ * shared, reusable database/cache container per type on a private network, then
+ * wires the tool to it. One Postgres/MySQL/Redis serves every tool that needs it. */
+const NETWORK = 'laki_net'
+const DEP_SPECS = {
+  postgres: { image: 'postgres:16-alpine', env: { POSTGRES_USER: 'laki', POSTGRES_PASSWORD: 'laki', POSTGRES_DB: 'laki' } },
+  mysql: { image: 'mysql:8', cmd: ['--default-authentication-plugin=mysql_native_password'], env: { MYSQL_ROOT_PASSWORD: 'laki', MYSQL_DATABASE: 'laki', MYSQL_USER: 'laki', MYSQL_PASSWORD: 'laki' } },
+  mariadb: { image: 'mariadb:11', env: { MARIADB_ROOT_PASSWORD: 'laki', MARIADB_DATABASE: 'laki', MARIADB_USER: 'laki', MARIADB_PASSWORD: 'laki' } },
+  mongo: { image: 'mongo:7', env: { MONGO_INITDB_ROOT_USERNAME: 'laki', MONGO_INITDB_ROOT_PASSWORD: 'laki' } },
+  redis: { image: 'redis:7-alpine', env: {} },
+  clickhouse: { image: 'clickhouse/clickhouse-server:latest', env: { CLICKHOUSE_DB: 'laki', CLICKHOUSE_USER: 'laki', CLICKHOUSE_PASSWORD: 'laki' } },
+}
+const depHost = (type) => 'laki_dep_' + type
+
+/* Spray the connection details across the many env-var conventions real tools use,
+ * so a broad set of DB-backed tools connect with no per-tool config. */
+function depEnv(needs) {
+  const e = {}
+  for (const t of needs || []) {
+    const h = depHost(t)
+    if (t === 'postgres') Object.assign(e, { DB_CONNECTION: 'pgsql', DB_HOST: h, DATABASE_HOST: h, POSTGRES_HOST: h, DB_HOSTNAME: h, PGHOST: h, DB_PORT: '5432', POSTGRES_PORT: '5432', PGPORT: '5432', DB_DATABASE: 'laki', DB_NAME: 'laki', POSTGRES_DB: 'laki', PGDATABASE: 'laki', DB_USERNAME: 'laki', DB_USER: 'laki', POSTGRES_USER: 'laki', PGUSER: 'laki', DB_PASSWORD: 'laki', POSTGRES_PASSWORD: 'laki', PGPASSWORD: 'laki', DATABASE_URL: `postgres://laki:laki@${h}:5432/laki` })
+    else if (t === 'mysql' || t === 'mariadb') Object.assign(e, { DB_CONNECTION: 'mysql', DB_HOST: h, DATABASE_HOST: h, MYSQL_HOST: h, DB_HOSTNAME: h, DB_PORT: '3306', MYSQL_PORT: '3306', DB_DATABASE: 'laki', DB_NAME: 'laki', MYSQL_DATABASE: 'laki', DB_USERNAME: 'laki', DB_USER: 'laki', MYSQL_USER: 'laki', DB_PASSWORD: 'laki', MYSQL_PASSWORD: 'laki', DATABASE_URL: `mysql://laki:laki@${h}:3306/laki` })
+    else if (t === 'mongo') Object.assign(e, { MONGO_HOST: h, MONGODB_HOST: h, MONGO_URL: `mongodb://laki:laki@${h}:27017`, MONGODB_URI: `mongodb://laki:laki@${h}:27017`, DATABASE_URL: `mongodb://laki:laki@${h}:27017` })
+    else if (t === 'redis') Object.assign(e, { REDIS_HOST: h, REDIS_PORT: '6379', REDIS_URL: `redis://${h}:6379` })
+    else if (t === 'clickhouse') Object.assign(e, { CLICKHOUSE_HOST: h, CLICKHOUSE_USER: 'laki', CLICKHOUSE_PASSWORD: 'laki' })
+  }
+  return e
+}
+
+/* Tools whose env schema is specific enough to need explicit wiring. */
+const PER_TOOL = {
+  espocrm: { ESPOCRM_DATABASE_PLATFORM: 'Mysql', ESPOCRM_DATABASE_HOST: depHost('mysql'), ESPOCRM_DATABASE_NAME: 'laki', ESPOCRM_DATABASE_USER: 'laki', ESPOCRM_DATABASE_PASSWORD: 'laki', ESPOCRM_ADMIN_USERNAME: 'admin', ESPOCRM_ADMIN_PASSWORD: 'LikeAKing#2026' },
+  invoiceninja: { APP_KEY: 'base64:4ixao5mrOUIhC995q0lsw3gZli5lFnDUcxHJDKlblvg=', APP_URL: 'http://localhost:20080', REQUIRE_HTTPS: 'false', DB_HOST: depHost('mysql'), DB_DATABASE: 'laki', DB_USERNAME: 'laki', DB_PASSWORD: 'laki' },
+  n8n: { N8N_SECURE_COOKIE: 'false', N8N_PORT: '5678' },
+  ghost: { database__client: 'mysql', database__connection__host: depHost('mysql'), database__connection__user: 'laki', database__connection__password: 'laki', database__connection__database: 'laki' },
+}
+
+async function ensureNetwork() {
+  const r = await req('POST', '/networks/create', { Name: NETWORK, Driver: 'bridge' })
+  return r.status < 400 || r.status === 409
+}
+async function ensureDep(type) {
+  const spec = DEP_SPECS[type]; if (!spec) return true
+  const name = depHost(type)
+  const ex = await req('GET', `/containers/${name}/json`)
+  if (ex.status === 200) { if (!(ex.body.State && ex.body.State.Running)) await req('POST', `/containers/${name}/start`); return true }
+  await req('POST', `/images/create?fromImage=${encodeURIComponent(spec.image)}`)
+  const cfg = {
+    Image: spec.image,
+    Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
+    Cmd: spec.cmd || undefined,
+    Labels: { 'com.likeaking.dep': type, 'com.likeaking.managed': 'true' },
+    HostConfig: { RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NETWORK },
+  }
+  const created = await req('POST', `/containers/create?name=${name}`, cfg)
+  if (created.status >= 400 && created.status !== 409) return false
+  await req('POST', `/containers/${name}/start`)
+  return true
+}
+
 function req(method, path, payload) {
   return new Promise((resolve, reject) => {
     const data = payload !== undefined ? JSON.stringify(payload) : undefined
@@ -212,23 +273,29 @@ async function statusAll() { return Promise.all(REGISTRY.map(statusOf)) }
 
 async function launch(slug, envOverride) {
   const spec = getTool(slug); if (!spec) return { ok: false, message: 'Unknown tool.' }
+  if (!(await available())) return { ok: false, message: 'Docker is not connected on this host — mount /var/run/docker.sock into the app to launch tools.' }
   const name = containerName(slug)
+  const url = `http://localhost:${hostPort(spec)}`
   const existing = await req('GET', `/containers/${name}/json`)
-  if (existing.status === 200) { await req('POST', `/containers/${name}/start`); return { ok: true, message: `${spec.name} started.` } }
-  await req('POST', `/images/create?fromImage=${encodeURIComponent(spec.image)}`)
-  const env = Object.assign({}, spec.env || {}, envOverride || {})
+  if (existing.status === 200) { await req('POST', `/containers/${name}/start`); return { ok: true, message: `${spec.name} started.`, url } }
+  // 1) private network  2) the databases this tool needs  3) the tool itself
+  await ensureNetwork()
+  for (const t of spec.needs || []) { if (!(await ensureDep(t))) return { ok: false, message: `Could not start dependency: ${t}.` } }
+  const pull = await req('POST', `/images/create?fromImage=${encodeURIComponent(spec.image)}`)
+  if (pull.status >= 400) return { ok: false, message: `Could not pull image ${spec.image}.` }
+  const env = Object.assign({}, depEnv(spec.needs), PER_TOOL[slug] || {}, spec.env || {}, envOverride || {})
   const config = {
     Image: spec.image,
     Env: Object.keys(env).map((k) => `${k}=${env[k]}`),
     Labels: { 'com.likeaking.tool': slug, 'com.likeaking.managed': 'true' },
     ExposedPorts: { [`${spec.port}/tcp`]: {} },
-    HostConfig: { RestartPolicy: { Name: 'unless-stopped' }, PortBindings: { [`${spec.port}/tcp`]: [{ HostPort: String(hostPort(spec)) }] }, Binds: spec.volumes || [] },
+    HostConfig: { RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: NETWORK, PortBindings: { [`${spec.port}/tcp`]: [{ HostPort: String(hostPort(spec)) }] }, Binds: spec.volumes || [] },
   }
   const created = await req('POST', `/containers/create?name=${name}`, config)
   if (created.status >= 400) return { ok: false, message: (created.body && created.body.message) || 'Create failed.' }
   const started = await req('POST', `/containers/${name}/start`)
   if (started.status >= 400 && started.status !== 304) return { ok: false, message: (started.body && started.body.message) || 'Start failed.' }
-  return { ok: true, message: `${spec.name} launched on port ${hostPort(spec)}.` }
+  return { ok: true, message: `${spec.name} launched on port ${hostPort(spec)}${(spec.needs || []).length ? ' with its database' : ''}.`, url }
 }
 async function stop(slug) { const s = getTool(slug); if (!s) return { ok: false }; const r = await req('POST', `/containers/${containerName(slug)}/stop?t=10`); return { ok: r.status < 400 || r.status === 304, message: r.status < 400 ? `${s.name} stopped.` : 'Stop failed.' } }
 async function restart(slug) { const s = getTool(slug); if (!s) return { ok: false }; const r = await req('POST', `/containers/${containerName(slug)}/restart?t=10`); return { ok: r.status < 400, message: r.status < 400 ? `${s.name} restarted.` : 'Restart failed.' } }

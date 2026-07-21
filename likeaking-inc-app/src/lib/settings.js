@@ -4,6 +4,7 @@
  */
 const fs = require('fs')
 const path = require('path')
+const supa = require('./supabase')
 
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, '..', '..', 'data')
 const FILE = path.join(DATA_DIR, 'settings.json')
@@ -123,20 +124,39 @@ function deepMerge(base, over) {
   }
   return out
 }
-function getAll() {
-  ensure()
-  try {
-    return deepMerge(DEFAULTS, JSON.parse(fs.readFileSync(FILE, 'utf-8')))
-  } catch {
-    return JSON.parse(JSON.stringify(DEFAULTS))
+
+let CACHE = null
+let BACKEND = 'file'
+function fileLoad() { try { return JSON.parse(fs.readFileSync(FILE, 'utf-8')) } catch { return {} } }
+function fileWrite(obj) { try { ensure(); const tmp = FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj, null, 2)); fs.renameSync(tmp, FILE) } catch { /* best-effort */ } }
+
+async function init() {
+  if (supa.enabled()) {
+    try {
+      await supa.ensureBucket()
+      const remote = await supa.loadJSON('settings.json')
+      CACHE = deepMerge(DEFAULTS, remote || fileLoad() || {})
+      await supa.saveJSON('settings.json', CACHE)
+      BACKEND = 'supabase'
+      return 'supabase'
+    } catch (e) {
+      console.error('[settings] Supabase init failed, using local file:', e && e.message)
+    }
   }
+  BACKEND = 'file'
+  CACHE = deepMerge(DEFAULTS, fileLoad() || {})
+  return 'file'
+}
+
+function getAll() {
+  if (!CACHE) CACHE = deepMerge(DEFAULTS, fileLoad() || {})
+  return CACHE
 }
 function save(patch) {
-  ensure()
   const next = deepMerge(getAll(), patch || {})
-  const tmp = FILE + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(next, null, 2))
-  fs.renameSync(tmp, FILE)
+  CACHE = next
+  fileWrite(next)
+  if (BACKEND === 'supabase') supa.saveJSON('settings.json', next).catch((e) => console.error('[settings] Supabase save failed:', e && e.message))
   return next
 }
 /** Full settings with the AI key redacted, for the panel. */
@@ -147,4 +167,5 @@ function publicAll() {
   return s
 }
 
-module.exports = { getAll, save, publicAll, DEFAULTS }
+function backend() { return BACKEND }
+module.exports = { init, backend, getAll, save, publicAll, DEFAULTS }
