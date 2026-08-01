@@ -2,7 +2,6 @@
   "name": "regescore-gateway",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "RegesCore gateway: use any OpenAI-compatible /v1/chat/completions or Anthropic-compatible /v1/messages endpoint as a model inside LM Studio.",
   "author": "David (davidio.dev)",
   "homepage": "https://davidio.dev",

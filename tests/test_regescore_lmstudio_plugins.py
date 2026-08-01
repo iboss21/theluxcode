@@ -61,6 +61,23 @@ def test_plugin_has_the_files_the_runner_expects(name):
 
 
 @pytest.mark.parametrize("name", PLUGIN_NAMES)
+def test_package_json_does_not_declare_an_es_module(name):
+    """LM Studio bundles the plugin with esbuild and passes no --format flag.
+
+    esbuild's default under --platform=node is CommonJS, so .lmstudio/production.js
+    contains require() calls. Declaring "type": "module" makes Node parse that
+    bundle as ESM and the plugin dies on load with:
+
+        ReferenceError: require is not defined in ES module scope
+
+    The plugin installs and appears in the UI, then disconnects immediately, so
+    the failure looks like a runtime crash rather than a packaging mistake.
+    """
+    package = json.loads((PLUGINS_DIR / name / "package.json").read_text(encoding="utf-8"))
+    assert package.get("type") != "module"
+
+
+@pytest.mark.parametrize("name", PLUGIN_NAMES)
 def test_sdk_is_a_declared_dependency(name):
     package = json.loads((PLUGINS_DIR / name / "package.json").read_text(encoding="utf-8"))
     assert "@lmstudio/sdk" in package.get("dependencies", {})

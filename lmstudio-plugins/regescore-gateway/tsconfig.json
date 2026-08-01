@@ -6,6 +6,10 @@
     "lib": ["ES2022"],
     "strict": true,
     "noEmit": true,
+    // The test files import with explicit .ts extensions, which is what
+    // node --experimental-strip-types requires. Valid here because nothing is
+    // emitted: LM Studio bundles the plugin with esbuild.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
