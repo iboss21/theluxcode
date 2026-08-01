@@ -98,6 +98,7 @@ set the variable in the environment where Claude Code runs.
 | Client stalls, then times out, with no server-side error | The gateway buffers the response instead of relaying server-sent events as they arrive | Enable streaming passthrough end to end |
 | `400` naming context length, only after the conversation grows | Claude Code's system prompt plus its tool schemas run to roughly 12,000–20,000 tokens before the first user message | Raise the model's context length in LM Studio to at least 32k, ideally 128k |
 | Timeouts that start partway into a session | Prompt prefix cache misses force a full re-ingest of a very large prompt every turn | Byte-stable prefix (this template) plus KV cache enabled |
+| `400 Failed to initialize samplers: failed to parse grammar` on every request that carries tools | A tool schema bound exceeds llama.cpp's grammar repetition limit — see the next section | `scripts/regescore_schema_shim.py`, or drop the offending tool |
 
 Start with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` and
 `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1` together — they cover the majority of
@@ -108,6 +109,97 @@ sits behind a translating proxy at `127.0.0.1:2126`, and what context length
 the model is loaded with. Both change which row above applies. The LM Studio
 server log prints the rejected request body; that log names the offending
 field directly and is the fastest way to confirm which of these you are hitting.
+
+## `failed to parse grammar`: the tool schemas, not the template
+
+**FACT.** This is the failure that survives a correct template, and it is the
+one that makes Code mode look broken while Chat and Cowork work.
+
+```
+parse: error parsing grammar: number of repetitions exceeds sane defaults, please reduce the number of repetitions
+E failed to parse grammar
+E srv send_error: task id = 1024, error: Failed to initialize samplers: failed to parse grammar
+[ERROR] Anthropic streaming error: Engine protocol predict request returned 400
+```
+
+Sampler initialisation happens **after** the prompt is templated. A template
+error cannot reach this point, and the log proves it: in the same session, the
+one request Claude Code sends with `"tools": []` — the session-title
+generation — processes its prompt and streams 121 tokens to completion. Every
+request after it carries the tool array and dies here.
+
+### Why
+
+LM Studio compiles the tool JSON schemas into a GBNF grammar so the model can
+only emit a well-formed tool call. llama.cpp turns a bounded string into a
+counted repetition — `common/json-schema-to-grammar.cpp:971`:
+
+```cpp
+if (schema_type == "string" && (schema.contains("minLength") || schema.contains("maxLength"))) {
+    int max_len = schema.contains("maxLength") ? schema["maxLength"].get<int>() : INT_MAX;
+    return _add_rule(rule_name, "\"\\\"\" " + build_repetition(char_rule, min_len, max_len) + " \"\\\"\"");
+}
+```
+
+Claude Code's `Workflow.script` is declared `"maxLength": 524288`, so the
+generated rule is:
+
+```
+tool-Workflow-schema-script ::= "\"" char{0,524288} "\""
+```
+
+and the grammar parser refuses it — `src/llama-grammar.cpp:13` and `:652`:
+
+```cpp
+#define MAX_REPETITION_THRESHOLD 2000
+...
+if (min_times > MAX_REPETITION_THRESHOLD || (has_max && max_times > MAX_REPETITION_THRESHOLD)) {
+    throw std::runtime_error("number of repetitions exceeds sane defaults, please reduce the number of repetitions");
+}
+```
+
+524288 > 2000. One tool fails the whole grammar, the sampler never initialises,
+and the request returns `400`. The same limit applies to `minLength`,
+`maxItems` and `minItems`.
+
+A second, non-fatal contributor sits alongside it: `Read.limit`, `Read.offset`
+and `ReportFindings.findings[].line` carry JS-safe-integer bounds of
+±9007199254740991. Those expand through `build_min_max_int` into hundreds of
+digit-range alternations. They compile, but they inflate the grammar for a
+bound that excludes nothing.
+
+### Fix
+
+`scripts/regescore_schema_shim.py` sits between Claude Code and LM Studio and
+removes the bounds llama.cpp cannot compile, forwarding everything else
+unchanged.
+
+```
+# see which tools break, from a saved request body
+python3 scripts/regescore_schema_shim.py --inspect captured-request.json
+
+# run it
+python3 scripts/regescore_schema_shim.py --listen 2127 --upstream http://127.0.0.1:2126
+setx ANTHROPIC_BASE_URL http://127.0.0.1:2127
+```
+
+It **removes** the keyword rather than clamping it. Clamping `maxLength` to
+2000 would let the grammar compile and then truncate a 512 KiB script at 2000
+characters — a loud `400` traded for a silently corrupted tool call. Removing
+it makes the rule unbounded (`char*`), which is what the tool wants: the bound
+was advisory metadata, never a decoding constraint.
+
+Streaming is relayed line by line, so tokens still arrive live.
+
+The alternative, if you would rather not run a proxy, is to drop the tool:
+`claude --disallowedTools Workflow`. That removes the oversized rule at the
+source but costs you the tool, and any future Claude Code tool with a large
+`maxLength` reintroduces the failure.
+
+**Also in that log.** `Reasoning setting 'high' is not supported by model ...
+Supported settings: 'on', 'off'. Falling back to 'on'` comes from Claude Code's
+`output_config: {effort: "high"}`. It is a warning, not the failure, and
+`CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` silences it.
 
 ## Images: why the model says it cannot see your screenshot
 
