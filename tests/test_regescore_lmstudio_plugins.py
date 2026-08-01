@@ -103,6 +103,23 @@ def test_installers_are_shipped_for_both_platforms():
     assert (PLUGINS_DIR / "install.ps1").is_file()
 
 
+@pytest.mark.parametrize("installer", ["install.sh", "install.ps1"])
+def test_installers_register_through_lms_rather_than_copying_files(installer):
+    """LM Studio does not scan a folder for plugins.
+
+    A plugin is only visible once the app is told about it over its local API,
+    which `lms dev --install` does via installLocalPlugin. An installer that
+    copies into extensions/plugins produces a plugin that never appears, with
+    no error anywhere.
+    """
+    text = (PLUGINS_DIR / installer).read_text(encoding="utf-8")
+    assert "dev --install" in text
+    # The old copy-into-the-plugins-folder approach built a destination path.
+    # Its absence is what proves the installer no longer relies on a scan.
+    assert "PluginRoot" not in text
+    assert "PLUGIN_ROOT" not in text
+
+
 def test_bundled_chat_template_matches_the_canonical_one():
     bundled = PLUGINS_DIR / "regescore/templates/regescore_fable5.jinja"
     canonical = ROOT / "config/chat_templates/regescore_fable5.jinja"

@@ -4,31 +4,38 @@
 # Brand and engineering by davidio.dev
 # https://davidio.dev
 #
-# Copies both plugins into LM Studio's plugin folder and installs their
-# dependencies. LM Studio picks them up on next launch.
+#   ./install.sh              install both plugins into LM Studio
+#   ./install.sh --dev        run them in development mode instead (live reload)
+#   ./install.sh --uninstall  print removal instructions
 #
-#   ./install.sh              install both plugins
-#   ./install.sh --link       symlink instead of copy (for development)
-#   ./install.sh --uninstall  remove both plugins
+# LM Studio does not discover plugins by scanning a folder. A plugin becomes
+# visible only when the app is told about it through its local API, which is
+# what `lms dev --install` does. Copying files into extensions/plugins does
+# nothing on its own.
+#
+# Requirements:
+#   - LM Studio must be RUNNING. The command talks to its local server.
+#   - `lms` must be on PATH. LM Studio ships it; if it is missing, enable the
+#     CLI from LM Studio's Developer settings, or run `lms bootstrap` from
+#     LM Studio's install folder.
 
 set -euo pipefail
 
-OWNER="davidio-dev"
 PLUGINS=("regescore" "regescore-gateway")
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-MODE="copy"
-for arg in "$@"; do
-  case "$arg" in
-    --link) MODE="link" ;;
-    --uninstall) MODE="uninstall" ;;
-    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
-    *) echo "unknown option: $arg" >&2; exit 2 ;;
+MODE="install"
+LMS_OVERRIDE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dev) MODE="dev"; shift ;;
+    --uninstall) MODE="uninstall"; shift ;;
+    --lms) LMS_OVERRIDE="${2:-}"; shift 2 ;;
+    -h|--help) sed -n '2,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
 
-# Mirrors LM Studio's own resolution order: the home pointer file first, then
-# ~/.cache/lm-studio, then ~/.lmstudio.
 find_lmstudio_home() {
   local pointer="$HOME/.lmstudio-home-pointer"
   if [[ -f "$pointer" ]]; then
@@ -42,90 +49,104 @@ find_lmstudio_home() {
   echo "$HOME/.lmstudio"
 }
 
-LMS_HOME="$(find_lmstudio_home)"
-PLUGIN_ROOT="$LMS_HOME/extensions/plugins/$OWNER"
-
-echo "LM Studio home:  $LMS_HOME"
-echo "Plugin folder:   $PLUGIN_ROOT"
-
-if [[ ! -d "$LMS_HOME" ]]; then
-  echo
-  echo "error: $LMS_HOME does not exist." >&2
-  echo "Start LM Studio at least once so it creates its home folder, then re-run." >&2
-  exit 1
-fi
+resolve_lms() {
+  if [[ -n "$LMS_OVERRIDE" ]]; then
+    echo "$LMS_OVERRIDE"
+    return
+  fi
+  if command -v lms >/dev/null 2>&1; then
+    command -v lms
+    return
+  fi
+  # Search LM Studio's home rather than hard-coding a path: the layout has
+  # changed between releases.
+  local home
+  home="$(find_lmstudio_home)"
+  if [[ -d "$home" ]]; then
+    find "$home" -maxdepth 4 -type f -name lms -perm -u+x 2>/dev/null | head -n 1
+  fi
+}
 
 if [[ "$MODE" == "uninstall" ]]; then
-  for plugin in "${PLUGINS[@]}"; do
-    target="$PLUGIN_ROOT/$plugin"
-    if [[ -e "$target" || -L "$target" ]]; then
-      rm -rf "$target"
-      echo "removed $target"
-    else
-      echo "not installed: $plugin"
-    fi
-  done
-  echo
-  echo "Done. Restart LM Studio."
+  cat <<'EOF'
+
+LM Studio has no command-line uninstall for plugins.
+Remove them in the app: open the Integrations panel, click the three dots next
+to "regescore" or "regescore-gateway", and choose the removal option. Then
+restart LM Studio.
+EOF
   exit 0
 fi
 
-mkdir -p "$PLUGIN_ROOT"
+LMS="$(resolve_lms || true)"
+if [[ -z "${LMS:-}" ]]; then
+  cat >&2 <<'EOF'
+
+error: could not find the 'lms' command.
+
+Open LM Studio, go to the Developer tab, and enable the command-line tool.
+Alternatively run 'lms bootstrap' from LM Studio's installation folder, then
+open a new terminal and re-run this script. You can also pass it directly:
+    ./install.sh --lms /path/to/lms
+EOF
+  exit 1
+fi
+
+echo
+echo "RegesCore for LM Studio - davidio.dev"
+echo "  lms      : $LMS"
+echo "  source   : $SOURCE_DIR"
+echo "  mode     : $MODE"
+echo
+echo "LM Studio must be running: these commands talk to its local server."
+echo
 
 for plugin in "${PLUGINS[@]}"; do
-  src="$SOURCE_DIR/$plugin"
-  target="$PLUGIN_ROOT/$plugin"
-
-  if [[ ! -f "$src/manifest.json" ]]; then
-    echo "error: $src/manifest.json not found" >&2
+  dir="$SOURCE_DIR/$plugin"
+  if [[ ! -f "$dir/manifest.json" ]]; then
+    echo "error: $dir/manifest.json not found" >&2
     exit 1
   fi
 
-  # Replacing an install: take the old one out rather than merging into it, so
-  # a renamed or deleted source file cannot linger and get loaded.
-  if [[ -e "$target" || -L "$target" ]]; then
-    echo "replacing existing $plugin"
-    rm -rf "$target"
+  echo "-> $plugin"
+  if [[ ! -d "$dir/node_modules" ]]; then
+    if command -v npm >/dev/null 2>&1; then
+      echo "   installing dependencies..."
+      (cd "$dir" && npm install --silent --no-audit --no-fund --omit=dev)
+    else
+      echo "   npm not on PATH; lms will install dependencies itself"
+    fi
   fi
 
-  if [[ "$MODE" == "link" ]]; then
-    ln -s "$src" "$target"
-    echo "linked  $plugin -> $src"
+  if [[ "$MODE" == "dev" ]]; then
+    # lms dev is a foreground watcher: it holds the registration open and
+    # rebuilds on change. Backgrounded here so both plugins can run.
+    echo "   starting dev server in the background..."
+    (cd "$dir" && "$LMS" dev &)
   else
-    mkdir -p "$target"
-    # node_modules and the .lmstudio build cache are rebuilt at the target.
-    tar -C "$src" \
-        --exclude node_modules \
-        --exclude .lmstudio \
-        --exclude '*.test.ts' \
-        -cf - . | tar -C "$target" -xf -
-    echo "copied  $plugin"
-  fi
-
-  install_dir="$target"
-  [[ "$MODE" == "link" ]] && install_dir="$src"
-  if command -v npm >/dev/null 2>&1; then
-    echo "        installing dependencies..."
-    (cd "$install_dir" && npm install --silent --no-audit --no-fund --omit=dev)
-  else
-    echo "        npm not found on PATH; LM Studio will install dependencies itself"
+    echo "   installing into LM Studio..."
+    (cd "$dir" && "$LMS" dev --install --yes)
   fi
 done
 
 TEMPLATE="$SOURCE_DIR/regescore/templates/regescore_fable5.jinja"
+echo
+if [[ "$MODE" == "dev" ]]; then
+  echo "Dev servers running in the background. The plugins stay registered while"
+  echo "those processes live. Kill them to unregister."
+else
+  echo "Installed. Open the Integrations panel in LM Studio:"
+  echo "  - 'regescore' appears in the plugin list; enable it."
+  echo "  - 'regescore-gateway' appears in the MODEL dropdown, not the plugin"
+  echo "    list, because it registers a generator."
+fi
 cat <<EOF
 
-Installed. Restart LM Studio.
+Chat template (manual - plugins cannot set it):
+  My Models > your model > Prompt Template, paste:
+  $TEMPLATE
 
-Next steps
-  1. Plugin list         enable "regescore" and configure the doctrine trigger.
-  2. Model dropdown      "regescore-gateway" appears there; point it at your
-                         endpoint under its global settings.
-  3. Chat template       plugins cannot set a model's Jinja template. Open
-                         My Models > your model > Prompt Template and paste:
-                         $TEMPLATE
-
-For the Claude Code failures this ships with, also set in your shell:
+For the Claude Code 400s, also set:
   export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1
   export CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1
 

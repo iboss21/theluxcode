@@ -14,6 +14,8 @@ Models: [RegesCore-1.0-35B](https://huggingface.co/iBossonline/RegesCore-1.0-35)
 
 ## Install
 
+**LM Studio must be running first.** Installation talks to its local API.
+
 ```bash
 # macOS / Linux
 ./install.sh
@@ -22,18 +24,45 @@ Models: [RegesCore-1.0-35B](https://huggingface.co/iBossonline/RegesCore-1.0-35)
 .\install.ps1
 ```
 
-Then restart LM Studio. The installer resolves LM Studio's home the same way
-LM Studio does — the `~/.lmstudio-home-pointer` file, then `~/.cache/lm-studio`,
-then `~/.lmstudio` — copies both plugins into
-`extensions/plugins/davidio-dev/`, and runs `npm install` in each.
-
 | Flag | Effect |
 |---|---|
-| `--link` / `-Link` | Symlink instead of copy, so edits take effect without reinstalling |
-| `--uninstall` / `-Uninstall` | Remove both plugins |
+| `--dev` / `-Dev` | Run as development servers instead: live reload, registered only while the process lives |
+| `--uninstall` / `-Uninstall` | Print removal instructions (LM Studio has no CLI uninstall) |
+| `--lms <path>` / `-LmsPath <path>` | Use a specific `lms` binary |
 
-For development on a single plugin, `cd` into it and run `lms dev`, which
-rebuilds and reloads on every change.
+### Why copying files does not work
+
+LM Studio does **not** discover plugins by scanning a folder. Dropping a plugin
+into `~/.lmstudio/extensions/plugins/` leaves it invisible no matter how many
+times you restart the app. A plugin becomes visible only when LM Studio is told
+about it over its local API, and the command that does that is:
+
+```bash
+cd regescore && lms dev --install --yes
+```
+
+which calls `client.repository.installLocalPlugin({ path })` internally. The
+installers above run exactly that for each plugin, after `npm install`. Nothing
+is copied anywhere.
+
+`lms dev` without `--install` is the other mode: it calls
+`registerDevelopmentPlugin` and holds the registration open for as long as the
+process runs, rebuilding on every file change. Close it and the plugin
+disappears from the list. Use it while editing, `--install` to keep it.
+
+### If `lms` is not found
+
+LM Studio ships the CLI but does not always put it on PATH. Enable it from the
+app's **Developer** tab, or run `lms bootstrap` from LM Studio's install folder
+and open a new terminal. The installers also search LM Studio's home directory
+before giving up, and accept an explicit path.
+
+### Where each plugin shows up
+
+- **`regescore`** appears in the **Integrations / plugin list**. Enable it there.
+- **`regescore-gateway`** appears in the **model dropdown**, not the plugin
+  list, because it registers a generator. This is expected: LM Studio moves any
+  plugin with a generator out of the plugin list and treats it as a model.
 
 ## What ships
 
