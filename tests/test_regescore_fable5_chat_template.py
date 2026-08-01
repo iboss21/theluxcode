@@ -294,22 +294,71 @@ def test_xml_format_emits_parameter_blocks():
     assert "</function>\n</tool_call>" in out
 
 
-def test_image_blocks_become_vision_tokens():
+IMAGE_MESSAGE = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "what is this"},
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png"}},
+        ],
+    }
+]
+
+
+def test_image_blocks_emit_the_llamacpp_media_marker_by_default():
+    """mtmd splits the prompt on <__media__> to splice in the image embedding.
+
+    Emitting <|vision_start|> as literal text yields zero markers, mtmd attaches
+    nothing, and the model reports it cannot see an attached screenshot.
+    """
+    out = render(IMAGE_MESSAGE)
+    assert "<__media__>" in out
+    assert "<|vision_start|>" not in out
+
+
+def test_qwen_vision_marker_style_for_vllm():
+    out = render(IMAGE_MESSAGE, vision_marker_style="qwen")
+    assert "<|vision_start|><|image_pad|><|vision_end|>" in out
+    assert "<__media__>" not in out
+
+
+def test_one_media_marker_per_image():
+    """mtmd errors when the marker count does not match the bitmap count."""
     out = render(
         [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "what is this"},
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": "image/png"},
-                    },
+                    {"type": "text", "text": "compare"},
+                    {"type": "image", "source": {"data": "a"}},
+                    {"type": "image", "source": {"data": "b"}},
+                    {"type": "image", "source": {"data": "c"}},
                 ],
             }
         ]
     )
-    assert "<|vision_start|><|image_pad|><|vision_end|>" in out
+    assert out.count("<__media__>") == 3
+
+
+def test_image_inside_a_tool_result_emits_a_marker():
+    out = render(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t1",
+                        "content": [
+                            {"type": "text", "text": "screenshot:"},
+                            {"type": "image", "source": {"data": "x"}},
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+    assert "<__media__>" in out
 
 
 def test_unknown_content_block_types_are_skipped_not_raised():

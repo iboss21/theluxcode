@@ -109,6 +109,83 @@ the model is loaded with. Both change which row above applies. The LM Studio
 server log prints the rejected request body; that log names the offending
 field directly and is the fastest way to confirm which of these you are hitting.
 
+## Images: why the model says it cannot see your screenshot
+
+**FACT.** llama.cpp attaches images through `mtmd`, and `mtmd` requires the
+literal marker `<__media__>` in the rendered prompt. `mtmd.cpp` splits the
+prompt on that marker and substitutes the image embedding chunk, adding
+`<|vision_start|>` and `<|vision_end|>` around it *itself*. The header states it
+directly: *"the prompt must have the input image marker (default: `<__media__>`)
+in it ... the marker will be replaced with the image/audio chunk"*, and *"number
+of bitmaps must be equal to the number of markers in the prompt"*.
+
+A template that emits `<|vision_start|><|image_pad|><|vision_end|>` as literal
+text therefore produces **zero** markers. The image is never spliced in, the
+model receives only the text, and it answers that no screenshot was attached —
+exactly what the Claude Code session showed.
+
+The template now emits `<__media__>`, one per image, including images inside a
+`tool_result`. Set `vision_marker_style` to `'qwen'` only for vLLM or
+transformers, which take the opposite convention.
+
+**INFERENCE.** Your `mmproj-BF16.gguf` is almost certainly fine. The projector
+only runs once the marker splices an image into the prompt; with no marker it
+was never reached. Load the mmproj alongside the model in LM Studio, confirm the
+model shows a vision badge, then re-test with the corrected template. If a
+mismatch remains, prefer `mmproj-F16.gguf`: BF16 has patchier CPU-side support
+in llama.cpp than F16 does.
+
+## The empty response: `"content": []` with 4,096 tokens generated
+
+Your log shows a completed generation with no content:
+
+```
+"content": [], "stop_reason": "end_turn", "usage": {}
+... release: id 0 | task 2 | stop processing: n_tokens = 4096, truncated = 0
+```
+
+**INFERENCE.** The model produced 4,096 tokens and none of them survived into
+the response. That is the signature of reasoning-channel mis-tagging rather than
+a model that stayed silent: everything went into reasoning and was stripped. The
+pre-filled `<think>` tag (row 8 above) causes exactly this — the model never
+emits an opening tag, so the parser cannot pair it with the closing one. The
+corrected generation prompt should resolve it. If it persists, the tokens are
+being spent inside an unterminated reasoning block, which points at sampling
+settings or a context window too small for the prompt.
+
+## The request you did not make
+
+```
+POST /v1/messages  {"model": "qwen/qwen2.5-coder-14b", "max_tokens": 1,
+                    "messages": [{"role":"user","content":"count"}],
+                    "tools": [...], "metadata": {"user_id": "..."}}
+```
+
+**INFERENCE.** `max_tokens: 1` with a single throwaway message and one tool is a
+capability probe, not real inference — Claude Code checking whether the endpoint
+accepts tool definitions. It is harmless. The `metadata.user_id` carrying a
+device and session ID confirms it comes from Claude Code, not from LM Studio.
+
+The stale model name comes from configuration, not from nowhere. Claude Code
+resolves model IDs from environment variables and settings files, and a
+background or small-model slot keeps its own ID separate from the one in the
+model picker. Check, in this order:
+
+```bash
+grep -rn "qwen2.5-coder" ~/.claude/settings.json ~/.claude.json \
+     ~/.claude/settings.local.json .claude/settings.json 2>/dev/null
+env | grep -i ANTHROPIC_
+```
+
+The variables that hold a model ID are `ANTHROPIC_MODEL`,
+`ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`,
+`ANTHROPIC_DEFAULT_HAIKU_MODEL` and `ANTHROPIC_SMALL_FAST_MODEL`. A leftover
+value in any of them, in a shell profile or a project-level
+`.claude/settings.json`, produces requests naming a model you no longer have.
+
+**UNKNOWN.** Which of those holds the value on your machine. The two commands
+above answer it directly.
+
 ## Prompt layout the template produces
 
 ```

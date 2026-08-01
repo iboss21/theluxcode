@@ -102,3 +102,8 @@ compound.config.json
 *.error.log
 _scratch/
 /odysseus/
+
+# LM Studio plugin build artifacts
+lmstudio-plugins/*/node_modules/
+lmstudio-plugins/*/.lmstudio/
+lmstudio-plugins/*/package-lock.json
