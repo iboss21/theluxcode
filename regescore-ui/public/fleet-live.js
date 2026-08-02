@@ -44,9 +44,11 @@
     '/api/system', 'api/system',
   ]
   var SERVICE_ROUTES = ['/api/services/status', 'api/services/status', '/api/services', 'api/services']
+  var DASHBOARD_ROUTES = ['/api/dashboard', 'api/dashboard']
 
   var statsUrl = null
   var servicesUrl = null
+  var dashUrl = null
   var inst = null
 
   // -- instance handle ---------------------------------------------------
@@ -96,11 +98,14 @@
     if (!raw || typeof raw !== 'object') return null
     var d = raw.data && typeof raw.data === 'object' ? raw.data : raw
     var out = {
-      cpu: dig(d, ['cpu.percent', 'cpu.usage', 'cpu_percent', 'cpuPercent', 'cpu', 'host.cpu']),
-      ramPct: dig(d, ['memory.percent', 'mem.percent', 'memory_percent', 'ramPercent', 'ram.percent', 'ram']),
-      ramUsed: dig(d, ['memory.usedBytes', 'memory.used', 'mem.used', 'ram.used', 'memory_used_bytes']),
-      ramTotal: dig(d, ['memory.totalBytes', 'memory.total', 'mem.total', 'ram.total', 'memory_total_bytes']),
-      load: dig(d, ['cpu.load.0', 'load.0', 'loadavg.0', 'load1', 'load_average', 'cpu.load1']),
+      // RegesCore's own shape is listed first in each group: it returns
+      // cpu.usage, memory.usage and loadAvg (capital A). The rest are
+      // fallbacks for other builds.
+      cpu: dig(d, ['cpu.usage', 'cpu.percent', 'cpu_percent', 'cpuPercent', 'cpu', 'host.cpu']),
+      ramPct: dig(d, ['memory.usage', 'memory.percent', 'mem.percent', 'memory_percent', 'ramPercent', 'ram.percent', 'ram']),
+      ramUsed: dig(d, ['memory.used', 'memory.usedBytes', 'mem.used', 'ram.used', 'memory_used_bytes']),
+      ramTotal: dig(d, ['memory.total', 'memory.totalBytes', 'mem.total', 'ram.total', 'memory_total_bytes']),
+      load: dig(d, ['loadAvg.0', 'cpu.load.0', 'load.0', 'loadavg.0', 'load1', 'load_average', 'cpu.load1']),
       temp: dig(d, ['thermal', 'temperature', 'temp', 'cpu.temp', 'thermal.cpu']),
       uptime: dig(d, ['uptimeSeconds', 'uptime', 'host.uptime', 'uptime_seconds']),
     }
@@ -125,6 +130,50 @@
       })
     }
     return next()
+  }
+
+  /**
+   * RegesCore's /api/dashboard carries the counts the vitals panels want:
+   * memory.count is the fact vault size, sessions.count the session log, and
+   * socrates.entities/relations the knowledge graph. These were the bindings
+   * showing an em dash because no route had been found for them.
+   */
+  function paintDashboard(j) {
+    if (!j || typeof j !== 'object') return
+    var facts = dig(j, ['memory.count'])
+    if (facts !== null && inst && inst.sim) {
+      // frame() owns this binding, so it has to go through the sim.
+      inst.sim.facts = facts
+      set('facts', facts.toLocaleString())
+      set('memFacts', facts.toLocaleString())
+    }
+    var ent = dig(j, ['socrates.entities'])
+    var rel = dig(j, ['socrates.relations'])
+    if (ent !== null) set('glCount', ent.toLocaleString())
+    if (ent !== null && rel !== null) set('stObj', ent + ' / ' + rel)
+    var sess = dig(j, ['sessions.count'])
+    if (sess !== null) set('saQ', String(sess))
+    var prov = j.system && j.system.provider
+    if (prov) set('raModel', String(prov))
+    var mode = j.system && j.system.mode
+    if (mode) set('raState', String(mode).toUpperCase())
+  }
+
+  function discoverDashboard() {
+    var i = 0
+    function next() {
+      if (i >= DASHBOARD_ROUTES.length) return Promise.resolve(null)
+      var url = DASHBOARD_ROUTES[i++]
+      return get(url).then(function (j) {
+        return (j && (j.memory || j.system || j.socrates)) ? url : next()
+      })
+    }
+    return next()
+  }
+
+  function tickDashboard() {
+    if (!dashUrl) return
+    get(dashUrl).then(function (j) { if (j) paintDashboard(j) })
   }
 
   function discoverServices() {
@@ -247,6 +296,13 @@
       log('fleet-live · telemetry from ' + url, '#4C8DFF')
       tick()
       setInterval(tick, POLL_MS)
+    })
+
+    discoverDashboard().then(function (url) {
+      if (!url) return
+      dashUrl = url
+      tickDashboard()
+      setInterval(tickDashboard, 10000)
     })
 
     discoverServices().then(function (url) {
