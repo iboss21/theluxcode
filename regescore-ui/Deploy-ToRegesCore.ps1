@@ -184,6 +184,45 @@ foreach ($dir in @('assets', 'vendor')) {
     }
 }
 
+# -- wire it -----------------------------------------------------------
+# The export ships its own simulator, so a bare swap trades an old design
+# showing real numbers for a new design showing random ones. fleet-live.js
+# discovers the host's telemetry route, silences retarget()/pushLog() only
+# once it has a confirmed source, and feeds measured values into this.sim so
+# frame() keeps the export's easing and only the numbers change.
+# polish.css closes the scrollbar gap where the export's dark rules are
+# scoped to [data-scr] descendants and the OS default shows through.
+#
+# Injected into the DEPLOYED copy, never into -Source, so the export in
+# Downloads stays pristine for the next redesign.
+$wire = @('fleet-live.js', 'polish.css')
+$here = $PSScriptRoot
+foreach ($asset in $wire) {
+    $from = Join-Path (Join-Path $here 'public') $asset
+    if (-not (Test-Path -LiteralPath $from)) {
+        Write-Host "  MISSING    $asset (run this from the repo so the wiring ships)" -ForegroundColor Yellow
+        continue
+    }
+    if ($PSCmdlet.ShouldProcess((Join-Path $targetDir $asset), 'copy')) {
+        Copy-Item -LiteralPath $from -Destination (Join-Path $targetDir $asset) -Force
+        Write-Host "  copied     $asset"
+    }
+}
+
+if ($PSCmdlet.ShouldProcess($Target, 'inject live wiring')) {
+    $html = Get-Content -LiteralPath $Target -Raw -Encoding UTF8
+    if ($html -notmatch 'fleet-live\.js') {
+        # Stylesheet inside <helmet> so the runtime hoists it into <head>;
+        # script before </body> so the DOM exists when it starts polling.
+        $html = $html -replace '</helmet>', '<link rel="stylesheet" href="polish.css"></helmet>'
+        $html = $html -replace '</body>', '<script src="fleet-live.js" defer></script></body>'
+        [System.IO.File]::WriteAllText($Target, $html, (New-Object System.Text.UTF8Encoding $false))
+        Write-Host "  wired      polish.css + fleet-live.js" -ForegroundColor Green
+    } else {
+        Write-Host "  wired      already present"
+    }
+}
+
 # -- confirm with the server -------------------------------------------
 if ($WhatIfPreference) { Write-Host ''; Write-Host '  (WhatIf - nothing written)' -ForegroundColor Yellow; exit 0 }
 
