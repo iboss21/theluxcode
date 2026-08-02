@@ -1,0 +1,16 @@
+{
+  "name": "regescore-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RegesCore Command Center - serves the Claude Design dashboard export and the /api/* surface behind it. Brand and engineering by davidio.dev.",
+  "author": "davidio.dev",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "verify": "node scripts/verify-render.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^4.21.2" },
+  "devDependencies": { "playwright": "^1.58.0" }
+}

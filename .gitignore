@@ -110,3 +110,6 @@ lmstudio-plugins/*/package-lock.json
 
 # minja verification cache
 .cache/
+
+# The dashboard logo is part of the deployable UI, not a scratch image.
+!regescore-ui/public/assets/*.png
