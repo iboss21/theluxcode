@@ -49,10 +49,29 @@ function injectShim(html, extra) {
     const head = html.indexOf('<head>')
     out = head !== -1 ? html.slice(0, head + 6) + '\n' + tag + html.slice(head + 6) : tag + html
   }
-  // Enhancements are opt-in. The default is the export exactly as designed:
-  // nothing added, nothing rewritten. Set REGESCORE_ENHANCE=1 to layer on
-  // public/enhance.js (brand marks as home buttons).
+  out = injectLive(out)
+  // Brand-marks-as-home-buttons is still opt-in: it is unverified.
   return process.env.REGESCORE_ENHANCE === '1' ? injectEnhancements(out) : out
+}
+
+/**
+ * The live bridge and the scrollbar corrections. Both are additive - the
+ * bridge replaces the simulator's numbers through the component's own
+ * `liveData` seam, the stylesheet only closes browser-default gaps - so the
+ * export itself stays untouched and a redesign inherits both.
+ *
+ * Disable with REGESCORE_LIVE=0 to see the design's own simulation again,
+ * which is the fastest way to tell a data problem from a design problem.
+ */
+function injectLive(html) {
+  if (process.env.REGESCORE_LIVE === '0') return html
+  const css = '<link rel="stylesheet" href="/polish.css">'
+  const js = '<script src="/live-bridge.js" defer></script>'
+  const headClose = html.indexOf('</helmet>')
+  let out = html
+  if (headClose !== -1) out = html.slice(0, headClose) + css + '\n' + html.slice(headClose)
+  const bodyClose = out.lastIndexOf('</body>')
+  return bodyClose !== -1 ? out.slice(0, bodyClose) + js + '\n' + out.slice(bodyClose) : out + js
 }
 
 /**

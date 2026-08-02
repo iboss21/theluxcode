@@ -1,0 +1,76 @@
+/*
+ * Additive corrections layered over the design export. Nothing here changes
+ * layout, colour language, or type - it only closes gaps where a browser
+ * default shows through.
+ *
+ * RegesCore // Fable 5 - brand and engineering by davidio.dev
+ */
+
+/* Scrollbars.
+ *
+ * The export styles ::-webkit-scrollbar globally and again under
+ * "[data-scr] " - a descendant selector. Any scroller that is itself a
+ * [data-scr] node, or that lives outside that subtree, gets neither rule in
+ * some Chrome builds and falls back to the light OS scrollbar: a white track
+ * against a #08080A panel, which is what "escaped from the UI" looks like.
+ *
+ * Declared on the universal selector so no scroller can miss it, and paired
+ * with the standard scrollbar-color property because Chrome ignores the
+ * -webkit- pseudo-elements once an element resolves a standard value - having
+ * only one of the two is how this gap appears in the first place. */
+:root {
+  color-scheme: dark;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #25252B transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #25252B;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #34343C;
+}
+
+/* Textareas and inputs inherit the page font but not always the dark
+ * scheme for their inner scroller. */
+textarea,
+input,
+select {
+  scrollbar-color: #25252B transparent;
+}
+
+/* A service tile carries its live state on data-status once the bridge has
+ * swept. Bordering on state rather than repainting the tile keeps the
+ * design's surface intact while making "down" readable at a glance. */
+[data-svc][data-status='down'] {
+  border-color: rgba(229, 52, 63, 0.32) !important;
+}
+
+[data-svc][data-status='timeout'] {
+  border-color: rgba(245, 165, 36, 0.32) !important;
+}
+
+[data-svc][data-status='up'] {
+  border-color: rgba(47, 224, 124, 0.22) !important;
+}
+
+/* The bridge writes an em dash where no measurement exists. Dimming it stops
+ * a wall of dashes reading as broken text. */
+[data-live] {
+  font-variant-numeric: tabular-nums;
+}

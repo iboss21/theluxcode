@@ -127,3 +127,28 @@ errors.
 ---
 
 RegesCore // Fable 5 — [davidio.dev](https://davidio.dev)
+
+## Live data: status
+
+`public/polish.css` — **working, verified.** Fixes the OS scrollbar leaking
+through (the export scopes its dark scrollbar rules to `[data-scr] `
+descendants, so scrollers outside that subtree fell back to the light default)
+and borders service tiles by state.
+
+`public/live-bridge.js` — **not attaching yet.** The approach is sound and the
+seam is real: `retarget()` and `pushLog()` both bail on
+`this.props.liveData === false`, a declared editable prop, while `frame()` reads
+only `this.sim` and never checks it. Feeding measured values into `this.sim`
+therefore keeps the export's easing and painting and changes only the numbers.
+
+What does not work is *reaching the instance*. Walking React's fiber `return`
+chain up from `[data-screen-label]` tops out at the dc runtime's
+`StreamableComponent`; a full breadth search over `child`/`sibling`/`alternate`
+does not find a `stateNode` carrying `sim` either. Until that resolves, the
+bridge is inert — the panels keep showing the export's own simulation.
+
+Verified by `scripts/verify-live.js`, which fails on purpose while this is true:
+it asserts the painted RAM figure converges on `/api/system/stats` rather than
+merely that a number appears.
+
+The `/api/*` layer underneath is live and correct independently of this.
