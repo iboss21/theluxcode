@@ -49,22 +49,22 @@
     })
     if (!key) return null
 
-    // Walking `return` up from the root element reaches the runtime's own
-    // StreamableComponent and stops - the export's class is not an ancestor
-    // fiber there. So search the whole tree in both directions: `child` and
-    // `sibling` cover the subtree, `return` the spine.
+    // The export's class is never a fiber stateNode. The dc runtime wraps it:
+    // StreamableComponent compiles the <script type="text/x-dc"> body and keeps
+    // the resulting object on `.logic`, rendering its output itself. So the
+    // instance is one property off the wrapper, not a node in the tree - which
+    // is why searching stateNodes for `sim` finds nothing.
+    var fiber = root[key]
     var seen = new Set()
-    var queue = [root[key]]
-    while (queue.length) {
-      var fiber = queue.shift()
-      if (!fiber || seen.has(fiber)) continue
+    while (fiber && !seen.has(fiber)) {
       seen.add(fiber)
       var node = fiber.stateNode
-      if (node && node.sim && typeof node.frame === 'function') return node
-      if (fiber.return) queue.push(fiber.return)
-      if (fiber.child) queue.push(fiber.child)
-      if (fiber.sibling) queue.push(fiber.sibling)
-      if (fiber.alternate) queue.push(fiber.alternate)
+      if (node && typeof node === 'object') {
+        if (node.sim && typeof node.frame === 'function') return node
+        var logic = node.logic
+        if (logic && logic.sim && typeof logic.frame === 'function') return logic
+      }
+      fiber = fiber.return
     }
     return null
   }
@@ -178,10 +178,16 @@
   // Keys whose backing service is not implemented in /api yet. Listed
   // explicitly so adding a route means deleting a line here, and so nobody
   // has to guess which panels are live.
+  //
+  // `facts` and `memFacts` are deliberately absent: frame() paints those from
+  // this.sim every animation frame, so a dash written here is overwritten
+  // within 16ms. With retarget() neutralised they hold the design's default
+  // instead of drifting randomly, which is the honest resting state until a
+  // memory route exists to drive sim.facts.
   var UNSOURCED = [
     'acJit', 'acTasks', 'ahAgents', 'ahCalls', 'ahTasks', 'amVec',
-    'clDur', 'clJit', 'clLat', 'clSent', 'facts', 'feRows', 'glCount',
-    'igPct', 'igVram', 'mcTools', 'memFacts', 'memWrote', 'mgPct',
+    'clDur', 'clJit', 'clLat', 'clSent', 'feRows', 'glCount',
+    'igPct', 'igVram', 'mcTools', 'memWrote', 'mgPct',
     'odTouch', 'raJit', 'raRpm', 'raTps', 'riChunks', 'rqMs', 'rsStep',
     'saQ', 'soFol', 'soImp', 'stObj', 'vcNoise', 'vcPartial', 'vcPeak',
     'vcTime', 'wfMs', 'wsCache', 'wsCount', 'wsMs',

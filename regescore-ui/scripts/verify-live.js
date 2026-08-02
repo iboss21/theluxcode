@@ -42,7 +42,7 @@ const URL = process.env.TARGET || 'http://127.0.0.1:3000/'
       pageRamGb: read('ramGb'),
       pageUptime: read('sysOn'),
       pageServicesUp: read('svUp'),
-      unsourcedSample: ['facts', 'igVram', 'wsMs', 'clLat'].map(read),
+      unsourcedSample: ['igVram', 'wsMs', 'clLat', 'rqMs'].map(read),
       logTop: (document.querySelector('[data-log="0"]') || {}).textContent || null,
       scrollbarColor: getComputedStyle(document.body).scrollbarColor,
     }
