@@ -85,6 +85,40 @@ if (-not $export) { throw "no .dc.html in $Source" }
 $newText = Get-Content -LiteralPath $export.FullName -Raw -Encoding UTF8
 $newFp = Get-Fingerprint -Text $newText
 
+# -- the wiring that ships with the export -----------------------------
+# Discovered from public/ rather than hardcoded, and in the same order
+# src/resources.js injects them, because the order is load-bearing:
+#
+#   fleet-live      first  - owns the instance handle (StreamableComponent
+#                            .logic) and silences retarget()/pushLog(). Any
+#                            later script that writes a binding needs the
+#                            simulator already quiet or frame() overwrites it.
+#   fleet-screens          - memory, sessions, tasks, journal, notes, graph,
+#                            graphify, pdf, rag, email, constitution
+#   fleet-services         - the service list and the 21 detail pages
+#   fleet-tools            - voicebox, music, call, image, social, finance,
+#                            research, web, filesystem, convert, debate
+#   fleet-agent     last   - the console's tool-call loop, which drives the
+#                            screens above
+#
+# A fleet-*.js not named here still ships - between tools and agent,
+# alphabetically - so adding one needs no edit to this script.
+$fleetOrder = @('fleet-live.js', 'fleet-screens.js', 'fleet-services.js', 'fleet-tools.js')
+$fleetLast = 'fleet-agent.js'
+$publicDir = Join-Path $PSScriptRoot 'public'
+$fleet = @()
+if (Test-Path -LiteralPath $publicDir) {
+    $fleet = @(Get-ChildItem -LiteralPath $publicDir -Filter 'fleet-*.js' -File |
+        Select-Object -ExpandProperty Name |
+        Sort-Object @{Expression = {
+            $i = [array]::IndexOf($fleetOrder, $_)
+            if ($i -ge 0) { $i } elseif ($_ -eq $fleetLast) { $fleetOrder.Count + 1 } else { $fleetOrder.Count }
+        }}, @{Expression = { $_ }})
+}
+# polish.css closes the scrollbar gap where the export's dark rules are scoped
+# to [data-scr] descendants and the OS default shows through.
+$wire = @($fleet) + @('polish.css')
+
 # -- what the server is serving now ------------------------------------
 $servedText = $null
 try {
@@ -99,11 +133,25 @@ Write-Host ''
 Show-Fingerprint 'served'  $servedFp 'Yellow'
 Show-Fingerprint 'export'  $newFp    'Green'
 
-if ($servedFp -and $servedFp.Bytes -eq $newFp.Bytes -and $servedFp.NavItems -eq $newFp.NavItems) {
+# "Already deployed" is not the same as "already wired": a page can be the
+# current export and still be missing a fleet script that was added since.
+# Checking both is what makes a re-run after adding one actually do something.
+$wireMissing = @()
+if ($servedText) {
+    $wireMissing = @($wire | Where-Object { $servedText -notmatch [regex]::Escape($_) })
+}
+
+if ($servedFp -and $servedFp.Bytes -eq $newFp.Bytes -and $servedFp.NavItems -eq $newFp.NavItems -and
+    $wireMissing.Count -eq 0) {
     Write-Host ''
-    Write-Host '  Already serving this export. Nothing to do.' -ForegroundColor Green
+    Write-Host '  Already serving this export, with all wiring present. Nothing to do.' -ForegroundColor Green
+    Write-Host "  wired: $($wire -join ', ')" -ForegroundColor DarkGray
     Write-Host '  If the browser still looks old, it is cached: Ctrl+Shift+R.' -ForegroundColor Cyan
     exit 0
+}
+if ($wireMissing.Count -gt 0) {
+    Write-Host ''
+    Write-Host "  not yet wired: $($wireMissing -join ', ')" -ForegroundColor Yellow
 }
 
 # -- find the file being served ----------------------------------------
@@ -189,16 +237,15 @@ foreach ($dir in @('assets', 'vendor')) {
 # showing real numbers for a new design showing random ones. fleet-live.js
 # discovers the host's telemetry route, silences retarget()/pushLog() only
 # once it has a confirmed source, and feeds measured values into this.sim so
-# frame() keeps the export's easing and only the numbers change.
-# polish.css closes the scrollbar gap where the export's dark rules are
-# scoped to [data-scr] descendants and the OS default shows through.
+# frame() keeps the export's easing and only the numbers change. The rest of
+# the fleet layer wires the screens, the service pages, the tool panels and the
+# agent console to /api/* the same way: additively, from outside the export.
 #
+# $wire was computed above from public/ - see the ordering note there.
 # Injected into the DEPLOYED copy, never into -Source, so the export in
 # Downloads stays pristine for the next redesign.
-$wire = @('fleet-live.js', 'polish.css')
-$here = $PSScriptRoot
 foreach ($asset in $wire) {
-    $from = Join-Path (Join-Path $here 'public') $asset
+    $from = Join-Path $publicDir $asset
     if (-not (Test-Path -LiteralPath $from)) {
         Write-Host "  MISSING    $asset (run this from the repo so the wiring ships)" -ForegroundColor Yellow
         continue
@@ -209,17 +256,34 @@ foreach ($asset in $wire) {
     }
 }
 
-if ($PSCmdlet.ShouldProcess($Target, 'inject live wiring')) {
+if ($PSCmdlet.ShouldProcess($Target, 'inject fleet wiring')) {
     $html = Get-Content -LiteralPath $Target -Raw -Encoding UTF8
-    if ($html -notmatch 'fleet-live\.js') {
-        # Stylesheet inside <helmet> so the runtime hoists it into <head>;
-        # script before </body> so the DOM exists when it starts polling.
+    $added = @()
+
+    # Stylesheet inside <helmet> so the runtime hoists it into <head>; scripts
+    # before </body> so the DOM exists when they start polling.
+    #
+    # Each tag is added only when its filename is not already in the file, so
+    # re-running never duplicates one and a run after a new script was added
+    # wires just that script. Appending each before </body> in $fleet order
+    # keeps document order equal to load order, which is what defer promises.
+    if (($html -match '</helmet>') -and ($html -notmatch 'polish\.css') -and
+        (Test-Path -LiteralPath (Join-Path $publicDir 'polish.css'))) {
         $html = $html -replace '</helmet>', '<link rel="stylesheet" href="polish.css"></helmet>'
-        $html = $html -replace '</body>', '<script src="fleet-live.js" defer></script></body>'
+        $added += 'polish.css'
+    }
+    foreach ($js in $fleet) {
+        if ($html -match [regex]::Escape($js)) { continue }
+        if (-not (Test-Path -LiteralPath (Join-Path $targetDir $js))) { continue }
+        $html = $html -replace '</body>', ('<script src="' + $js + '" defer></script></body>')
+        $added += $js
+    }
+
+    if ($added.Count -gt 0) {
         [System.IO.File]::WriteAllText($Target, $html, (New-Object System.Text.UTF8Encoding $false))
-        Write-Host "  wired      polish.css + fleet-live.js" -ForegroundColor Green
+        Write-Host "  wired      $($added -join ', ')" -ForegroundColor Green
     } else {
-        Write-Host "  wired      already present"
+        Write-Host "  wired      already present ($($wire -join ', '))"
     }
 }
 

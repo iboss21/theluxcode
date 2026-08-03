@@ -19,6 +19,11 @@
  */
 'use strict'
 
+const fs = require('fs')
+const path = require('path')
+
+const PUBLIC = path.join(__dirname, '..', 'public')
+
 const RESOURCES = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js':
     '/vendor/react.production.min.js',
@@ -55,23 +60,80 @@ function injectShim(html, extra) {
 }
 
 /**
- * The live bridge and the scrollbar corrections. Both are additive - the
- * bridge replaces the simulator's numbers through the component's own
- * `liveData` seam, the stylesheet only closes browser-default gaps - so the
- * export itself stays untouched and a redesign inherits both.
+ * Load order for the fleet layer. Not alphabetical, and not incidental:
+ *
+ *   fleet-live      first  - it owns the instance handle (StreamableComponent
+ *                            .logic) and silences retarget()/pushLog(). Every
+ *                            later script that writes a binding needs the
+ *                            simulator already quiet, or frame() overwrites it.
+ *   fleet-screens   next   - the single-purpose screens (memory, sessions,
+ *                            tasks, journal, notes, graph, pdf, rag, email...)
+ *   fleet-services  next   - the service list and the 21 detail pages
+ *   fleet-tools     next   - voicebox, music, call, image, social, finance,
+ *                            research, web, filesystem, convert, debate
+ *   fleet-agent     last   - the console's tool-call loop, which drives the
+ *                            other screens and so wants them already wired
+ *
+ * A file not named here still loads - between tools and agent, alphabetically -
+ * so a new fleet-*.js is picked up without editing this list.
+ */
+const FLEET_FIRST = ['fleet-live.js', 'fleet-screens.js', 'fleet-services.js', 'fleet-tools.js']
+const FLEET_LAST = 'fleet-agent.js'
+
+/**
+ * Which fleet scripts to inject, decided by what is on disk rather than by a
+ * hardcoded list. Four agents write these files independently; a name in a
+ * constant that nobody created yet becomes a 404 in the console on every load,
+ * and a 404 in the console is indistinguishable from a broken script when you
+ * are trying to find out why a screen is dead.
+ */
+function fleetScripts(dir = PUBLIC) {
+  let names
+  try { names = fs.readdirSync(dir) } catch { return [] }
+  const rank = (name) => {
+    const i = FLEET_FIRST.indexOf(name)
+    if (i !== -1) return i
+    return name === FLEET_LAST ? FLEET_FIRST.length + 1 : FLEET_FIRST.length
+  }
+  return names
+    .filter((name) => /^fleet-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.js$/.test(name))
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+}
+
+/**
+ * The fleet layer and the scrollbar corrections. Both are additive - the live
+ * bridge replaces the simulator's numbers through the component's own sim, the
+ * screen scripts attach to the rendered DOM, the stylesheet only closes
+ * browser-default gaps - so the export itself stays untouched and a redesign
+ * inherits all of it.
  *
  * Disable with REGESCORE_LIVE=0 to see the design's own simulation again,
- * which is the fastest way to tell a data problem from a design problem.
+ * which is the fastest way to tell a data problem from a design problem, and
+ * the first step when bisecting which fleet script broke a screen.
+ *
+ * The scan runs at injection time, and server.js only re-injects when
+ * index.dc.html changes - so a fleet-*.js added while the server is up needs a
+ * restart to be picked up. The file itself is served statically either way.
  */
 function injectLive(html) {
   if (process.env.REGESCORE_LIVE === '0') return html
-  const css = '<link rel="stylesheet" href="/polish.css">'
-  const js = '<script src="/live-bridge.js" defer></script>'
-  const headClose = html.indexOf('</helmet>')
+  const scripts = fleetScripts()
   let out = html
-  if (headClose !== -1) out = html.slice(0, headClose) + css + '\n' + html.slice(headClose)
+
+  const headClose = out.indexOf('</helmet>')
+  if (headClose !== -1 && fs.existsSync(path.join(PUBLIC, 'polish.css'))) {
+    const css = '<link rel="stylesheet" href="/polish.css">'
+    out = out.slice(0, headClose) + css + '\n' + out.slice(headClose)
+  }
+
+  // Deferred, in list order: defer preserves document order between scripts,
+  // so the rank above is the execution order and not just the markup order.
+  const tags = scripts.map((name) => `<script src="/${name}" defer></script>`).join('\n')
+  if (!tags) return out
   const bodyClose = out.lastIndexOf('</body>')
-  return bodyClose !== -1 ? out.slice(0, bodyClose) + js + '\n' + out.slice(bodyClose) : out + js
+  return bodyClose !== -1
+    ? out.slice(0, bodyClose) + tags + '\n' + out.slice(bodyClose)
+    : out + tags
 }
 
 /**
@@ -86,4 +148,4 @@ function injectEnhancements(html) {
   return html + tag
 }
 
-module.exports = { RESOURCES, shimTag, injectShim }
+module.exports = { RESOURCES, shimTag, injectShim, fleetScripts }
