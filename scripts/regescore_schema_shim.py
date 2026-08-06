@@ -157,6 +157,72 @@ def sanitize(
     return changed
 
 
+def flatten_tool_results(payload, findings: list[Finding]) -> None:
+    """Reduce every tool_result block to text, in place.
+
+    LM Studio's Anthropic-compatible endpoint rejects the request outright:
+
+        400 Only text tool_result blocks are supported when
+            tool_result.content is an array.
+
+    Claude Code legitimately returns non-text results - read an image file,
+    capture a screenshot, and the tool result carries an image block. The shim
+    on the other side accepts only text there, so one screenshot anywhere in
+    the transcript kills every subsequent turn, not just the one that produced
+    it: the block stays in the history and is resent forever.
+
+    Blocks are replaced by a text description rather than deleted. A dropped
+    block leaves the model with a tool_use that has no visible result, so it
+    re-runs the tool and loops; a placeholder tells it the call succeeded and
+    what came back, which is the difference between a degraded answer and an
+    infinite retry.
+    """
+    if not isinstance(payload, dict):
+        return
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        return
+
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        blocks = message.get("content")
+        if not isinstance(blocks, list):
+            continue
+        for block in blocks:
+            if not isinstance(block, dict) or block.get("type") != "tool_result":
+                continue
+            inner = block.get("content")
+            if not isinstance(inner, list):
+                continue
+
+            kept, dropped = [], []
+            for part in inner:
+                if isinstance(part, str):
+                    kept.append({"type": "text", "text": part})
+                elif isinstance(part, dict) and part.get("type") == "text":
+                    kept.append(part)
+                elif isinstance(part, dict):
+                    kind = part.get("type", "unknown")
+                    media = ""
+                    source = part.get("source")
+                    if isinstance(source, dict) and source.get("media_type"):
+                        media = f", {source['media_type']}"
+                    dropped.append(f"{kind}{media}")
+
+            if not dropped:
+                continue
+
+            note = f"[{len(dropped)} non-text block(s) omitted: {', '.join(dropped)}]"
+            kept.append({"type": "text", "text": note})
+            block["content"] = kept
+            findings.append(
+                Finding(path=f"tool_result[{block.get('tool_use_id', '?')}]",
+                        keyword="content", value=", ".join(dropped),
+                        reason="LM Studio's /v1/messages accepts only text tool_result blocks")
+            )
+
+
 def sanitize_request(
     payload,
     threshold: int = REPETITION_THRESHOLD,
@@ -171,6 +237,8 @@ def sanitize_request(
     findings: list[Finding] = []
     if not isinstance(payload, dict):
         return findings
+
+    flatten_tool_results(payload, findings)
 
     tools = payload.get("tools")
     if not isinstance(tools, list):

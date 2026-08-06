@@ -287,3 +287,75 @@ def test_proxy_reports_a_dead_upstream_as_502():
         assert caught.value.code == 502
     finally:
         front.shutdown(); front.server_close()
+
+
+# -- tool_result flattening -------------------------------------------------
+# LM Studio's /v1/messages returns 400 "Only text tool_result blocks are
+# supported when tool_result.content is an array" for anything else. Claude
+# Code legitimately produces image results, and the block persists in history,
+# so one screenshot breaks every later turn until it is flattened.
+
+IMAGE_TOOL_RESULT = {
+    "messages": [
+        {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/a.png"}}]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "t1", "content": [
+                {"type": "text", "text": "read 1 image"},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBOR"}},
+            ]},
+        ]},
+    ]
+}
+
+
+def test_image_tool_result_becomes_text():
+    payload = json.loads(json.dumps(IMAGE_TOOL_RESULT))
+    findings = shim.sanitize_request(payload)
+    inner = payload["messages"][1]["content"][0]["content"]
+    assert all(b["type"] == "text" for b in inner), inner
+    assert inner[0]["text"] == "read 1 image"
+    # The placeholder names what was dropped, so the model is not left guessing.
+    assert "image/png" in inner[-1]["text"]
+    assert any("tool_result" in f["path"] for f in findings)
+
+
+def test_the_dropped_block_is_replaced_not_deleted():
+    """A tool_use with no visible result makes the model re-run the tool."""
+    payload = json.loads(json.dumps(IMAGE_TOOL_RESULT))
+    payload["messages"][1]["content"][0]["content"] = [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "x"}}
+    ]
+    shim.sanitize_request(payload)
+    inner = payload["messages"][1]["content"][0]["content"]
+    assert len(inner) == 1 and inner[0]["type"] == "text"
+    assert "omitted" in inner[0]["text"]
+
+
+def test_all_text_tool_results_are_left_alone():
+    payload = {"messages": [{"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": "t", "content": [{"type": "text", "text": "ok"}]}]}]}
+    before = json.dumps(payload)
+    assert shim.sanitize_request(payload) == []
+    assert json.dumps(payload) == before
+
+
+def test_a_string_tool_result_content_is_untouched():
+    """content as a plain string is already valid; the error is array-only."""
+    payload = {"messages": [{"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": "t", "content": "plain text"}]}]}
+    assert shim.sanitize_request(payload) == []
+    assert payload["messages"][0]["content"][0]["content"] == "plain text"
+
+
+def test_flattening_does_not_disturb_other_blocks():
+    payload = json.loads(json.dumps(IMAGE_TOOL_RESULT))
+    shim.sanitize_request(payload)
+    assert payload["messages"][0]["content"][0]["type"] == "tool_use"
+    assert payload["messages"][0]["content"][0]["input"] == {"file_path": "/a.png"}
+
+
+def test_malformed_message_shapes_do_not_raise():
+    for payload in ({"messages": "no"}, {"messages": [None, 7, {"content": None}]},
+                    {"messages": [{"content": [{"type": "tool_result", "content": 5}]}]}):
+        assert shim.sanitize_request(payload) == []
