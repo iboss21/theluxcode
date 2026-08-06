@@ -1,0 +1,14 @@
+{
+  "type": "plugin",
+  "runner": "node",
+  "owner": "davidio-dev",
+  "name": "regescore",
+  "tags": [
+    "regescore",
+    "fable5",
+    "system-prompt",
+    "chat-template",
+    "claude-code",
+    "davidio-dev"
+  ]
+}

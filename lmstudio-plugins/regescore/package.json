@@ -1,0 +1,19 @@
+{
+  "name": "regescore",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RegesCore // Fable 5 doctrine, directives and chat template support for LM Studio.",
+  "author": "David (davidio.dev)",
+  "homepage": "https://davidio.dev",
+  "license": "MIT",
+  "dependencies": {
+    "@lmstudio/sdk": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

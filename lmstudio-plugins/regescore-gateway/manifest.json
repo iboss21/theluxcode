@@ -1,0 +1,15 @@
+{
+  "type": "plugin",
+  "runner": "node",
+  "owner": "davidio-dev",
+  "name": "regescore-gateway",
+  "tags": [
+    "regescore",
+    "fable5",
+    "llm-gateway",
+    "proxy",
+    "openai-compatible",
+    "anthropic-messages",
+    "davidio-dev"
+  ]
+}
